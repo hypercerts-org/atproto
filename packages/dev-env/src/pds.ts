@@ -37,6 +37,7 @@ export class TestPds {
       recoveryDidKey: recoveryKey,
       adminPassword: ADMIN_PASSWORD,
       jwtSecret: JWT_SECRET,
+      dpopSecret: randomStr(32, 'hex'), // Generate 64-char hex string (32 bytes = 64 hex chars)
       // @NOTE ".example" will not actually work and is only used to display
       // multiple domains in the sing-up UI
       serviceHandleDomains: ['.test', '.example'],

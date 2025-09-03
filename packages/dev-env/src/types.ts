@@ -18,6 +18,13 @@ export type PdsConfig = Partial<pds.ServerEnvironment> & {
   migration?: string
 }
 
+export type SdsConfig = {
+  port?: number
+  maxCollaborators?: number
+  rotationKeyPath?: string
+  pdsUrl?: string
+}
+
 export type BskyConfig = Partial<bsky.ServerConfig> & {
   plcUrl: string
   repoProvider: string
@@ -46,6 +53,7 @@ export type TestServerParams = {
   dbPostgresUrl: string
   dbPostgresSchema: string
   pds: Partial<PdsConfig>
+  sds?: Partial<SdsConfig>
   plc: Partial<PlcConfig>
   bsky: Partial<BskyConfig>
   ozone: Partial<OzoneConfig>

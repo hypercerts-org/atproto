@@ -2,221 +2,117 @@
 
 ## Goal
 
-Create a `@atproto/sds` package that enables shared data repositories between multiple users while maintaining full compatibility with the existing ATProto ecosystem and avoiding any breaking changes to the current PDS implementation.
+Create a `@atproto/sds` package that enables shared data repositories between multiple users while maintaining full compatibility with the existing ATProto ecosystem and preserving the PDS interface for seamless federation.
 
 ## Key Requirements
 
-- **Zero Breaking Changes**: Existing PDS deployments remain unaffected
-- **Maximum Code Reuse**: Leverage existing PDS components extensively
-- **Interface Compatibility**: Implement the same XRPC API as PDS
-- **Optional Adoption**: Organizations can choose SDS when collaboration is needed
-- **Federation Ready**: Support interaction with regular PDSes
+- **PDS Interface Compatibility**: Maintain exact same XRPC API as PDS for federation
+- **Multi-User Data Repository**: Support multiple users controlling shared data repositories
+- **Zero Federation Breaking**: SDS instances can federate with existing PDS instances
+- **Internal Business Logic Updates**: Modify internal logic without breaking external interfaces
+- **Maximum Code Reuse**: Leverage entire PDS codebase as foundation
 
-## Considerations
+## Current Implementation Approach
 
-### 1. Architecture Philosophy
+### Architecture: Copy-and-Modify Strategy
 
-- **Composition over Modification**: Extend PDS rather than modify it
-- **Minimal Delta**: Only implement sharing-specific logic, reuse everything else
-- **Clear Boundaries**: Sharing complexity isolated to SDS package
+**Implemented Approach**: The SDS package was created by copying the entire PDS package structure and modifying internal business logic to support multi-user scenarios.
 
-### 2. Technical Constraints
+**Key Benefits**:
 
-- Maintain ATProto protocol compliance
-- Preserve individual user data sovereignty
-- Support existing client applications without changes
-- Handle authentication/authorization for multi-user scenarios
+- **Complete PDS Compatibility**: All existing PDS endpoints and behaviors preserved
+- **Federation Ready**: SDS can plug directly into federated networks of PDSes
+- **Internal Flexibility**: Can modify authentication, authorization, and data access patterns
+- **Zero Client Changes**: Existing ATProto clients work unchanged with SDS
 
-### 3. Deployment Scenarios
+### Technical Implementation
 
-- **Pure SDS**: Organizations deploy SDS for collaborative workspaces
-- **Hybrid**: Users have personal PDS + participate in shared SDSes
-- **Migration**: Teams can upgrade from PDS to SDS when sharing is needed
+- **Base**: Complete copy of `@atproto/pds` package → `@atproto/sds`
+- **Interface**: Identical XRPC API surface as PDS
+- **Internal Logic**: Modified to support shared repository access control
+- **Database**: Extended schema for multi-user permissions while maintaining PDS compatibility
+- **Authentication**: Enhanced to support collaborative access patterns
 
-## Conclusions
+## Core Differences from Original Plan
 
-### Best Approach: Separate SDS Package
+### Original Plan (Inheritance/Composition)
 
-After analyzing proxy/middleware vs. separate package approaches, a dedicated `@atproto/sds` package is optimal because:
+- Import PDS as dependency and extend classes
+- Override specific components while reusing others
+- Risk of version compatibility issues and complex dependency management
 
-1. **No Ecosystem Disruption**: PDS continues unchanged
-2. **Clean Separation**: Sharing logic isolated and optional
-3. **Code Reuse**: Can import and extend PDS components
-4. **Implementation Flexibility**: Multiple ATProto server implementations (following email server model)
+### Current Implementation (Copy-and-Modify)
 
-### Core Strategy: Composition + Extension
+- Full PDS codebase copied into SDS package
+- Direct modification of internal business logic
+- Complete control over all components and their interactions
+- Simplified dependency management and deployment
 
-- Import PDS components as dependencies
-- Override only authentication and authorization layers
-- Add permission management system
-- Extend database schema for multi-user access
-- Implement new sharing-specific endpoints
+## Updated Implementation Plan
 
-## PoC Implementation Plan (3-4 Weeks)
+**Goal**: Add multi-user shared repository support to the copied PDS codebase while maintaining complete interface compatibility
 
-**Goal**: Rapid validation of core shared repository concept with minimal viable features
+### Current Status: SDS Package Foundation Complete ✅
 
-### Phase 1: Foundation & Database (Week 1)
+The SDS package has been created with:
 
-#### 1.1 Package Setup
+- ✅ **Complete PDS codebase copied** to `packages/sds/`
+- ✅ **Package configuration updated** with correct dependencies
+- ✅ **Build system working** (TypeScript, tests, dev scripts)
+- ✅ **All PDS functionality intact** and operational
 
-```bash
-# Create new package structure
-mkdir packages/sds
-cd packages/sds
-```
+### Phase 1: Multi-User Permission System (Week 1-2)
 
-#### 1.2 Package Configuration
+#### 1.1 Database Schema Extensions
 
-```json
-// packages/sds/package.json - reuse PDS dependencies exactly
-{
-  "name": "@atproto/sds",
-  "version": "0.1.0",
-  "description": "Shared Data Server - Multi-user ATProto implementation",
-  "dependencies": {
-    "@atproto/pds": "workspace:^"
-    // All PDS dependencies inherited automatically
-  },
-  "scripts": {
-    "build": "tsc --build tsconfig.build.json",
-    "dev": "tsc --build --watch",
-    "test": "../dev-infra/with-test-redis-and-db.sh jest"
-  }
-}
-```
-
-#### 1.3 Minimal Core Architecture
-
-```typescript
-// packages/sds/src/index.ts - Follow PDS.create() pattern exactly
-import {
-  PDS,
-  ServerConfig,
-  ServerSecrets,
-  AppContextOptions,
-} from '@atproto/pds'
-import { SdsPermissionManager } from './permission-manager'
-
-// Extend PDS config with minimal sharing options
-export interface SdsConfig extends ServerConfig {
-  sharing: {
-    maxCollaborators: number // Simple limit for PoC
-  }
-}
-
-// Composition pattern: wrap PDS with sharing capabilities
-export class SDS extends PDS {
-  public permissionManager: SdsPermissionManager
-
-  static async create(
-    cfg: SdsConfig,
-    secrets: ServerSecrets,
-    overrides?: Partial<AppContextOptions>,
-  ): Promise<SDS> {
-    // Create PDS normally
-    const pds = await PDS.create(cfg, secrets, overrides)
-
-    // Add SDS extensions
-    const permissionManager = new SdsPermissionManager(
-      pds.ctx.accountManager.db,
-    )
-
-    // Cast to SDS and add extensions
-    const sds = pds as unknown as SDS
-    sds.permissionManager = permissionManager
-
-    return sds
-  }
-}
-```
-
-#### 1.4 Shared Repository Identity
-
-```typescript
-// packages/sds/src/shared-identity/index.ts
-import { createOp as createPlcOp } from '@did-plc/lib'
-import { Secp256k1Keypair } from '@atproto/crypto'
-
-export class SharedRepoIdentity {
-  constructor(
-    private sdsRotationKey: Keypair,
-    private serviceEndpoint: string,
-  ) {}
-
-  async createSharedRepoDid(
-    name: string,
-    createdBy: string,
-  ): Promise<{ did: string; signingKey: string }> {
-    // Generate new did:plc for shared repository per architectural decisions
-    const signingKey = await Secp256k1Keypair.create({ exportable: true })
-    const plcCreate = await createPlcOp({
-      signingKey: signingKey.did(),
-      rotationKeys: [this.sdsRotationKey.did()],
-      handle: `${name}.shared`, // Temporary handle for shared repos
-      pds: this.serviceEndpoint,
-      signer: this.sdsRotationKey,
-    })
-
-    return {
-      did: plcCreate.did,
-      signingKey: signingKey.did(),
-    }
-  }
-
-  async validateCollaboratorSignature(
-    repoDid: string,
-    userDid: string,
-    signature: string,
-    payload: any,
-  ): Promise<boolean> {
-    // Validate per-collaborator signing authority
-    // Implementation depends on key delegation mechanism
-    return true // Placeholder
-  }
-}
-```
-
-#### 1.4 Database Extensions (End of Week 1)
-
-**PoC Approach**: Add minimal tables to existing PDS database structure
+**Approach**: Add SDS-specific tables to support multi-user access control
 
 ```sql
--- packages/sds/src/db/migrations/001-sharing.sql
--- Follow PDS migration pattern exactly
+-- Add to existing SDS migrations
+-- packages/sds/src/account-manager/db/migrations/007-sds-sharing.sql
 
--- Minimal PoC tables - extend existing PDS schema
-CREATE TABLE shared_permissions (
-  repo_did TEXT NOT NULL,
-  user_did TEXT NOT NULL,
+-- Core sharing permissions table
+CREATE TABLE shared_repository_permissions (
+  repo_did TEXT NOT NULL,           -- Repository DID that's being shared
+  user_did TEXT NOT NULL,           -- User DID who has access
   permissions TEXT NOT NULL DEFAULT '{"read":true,"write":true}', -- JSON permissions
-  granted_by TEXT NOT NULL,
+  granted_by TEXT NOT NULL,         -- User DID who granted access
   granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TEXT NULL,             -- NULL = active, timestamp = revoked
   PRIMARY KEY (repo_did, user_did)
 );
 
--- Simple audit log for PoC
-CREATE TABLE permission_changes (
+-- Audit log for all permission changes
+CREATE TABLE permission_audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   repo_did TEXT NOT NULL,
   user_did TEXT NOT NULL,
-  action TEXT NOT NULL, -- 'grant', 'revoke'
-  changed_by TEXT NOT NULL,
+  action TEXT NOT NULL,             -- 'grant', 'revoke', 'modify'
+  permissions_before TEXT,          -- Previous permissions (JSON)
+  permissions_after TEXT,           -- New permissions (JSON)
+  changed_by TEXT NOT NULL,         -- User DID who made the change
   changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_shared_permissions_user ON shared_permissions(user_did);
-CREATE INDEX idx_shared_permissions_repo ON shared_permissions(repo_did);
+-- Indexes for performance
+CREATE INDEX idx_shared_repo_perms_user ON shared_repository_permissions(user_did);
+CREATE INDEX idx_shared_repo_perms_repo ON shared_repository_permissions(repo_did);
+CREATE INDEX idx_permission_audit_repo ON permission_audit_log(repo_did);
 ```
 
-### Phase 2: Auth & Permission Logic (Week 2)
+#### 1.2 Permission Manager Implementation
 
-#### 2.1 Minimal Permission Manager
+**File**: `packages/sds/src/permission-manager/index.ts`
 
 ```typescript
-// packages/sds/src/permission-manager/index.ts
-// Reuse PDS database patterns exactly
-import { Database } from '@atproto/pds' // Use exact PDS database class
+// New SDS-specific permission management
+import { Database } from '../db'
+
+export interface RepositoryPermissions {
+  read: boolean
+  write: boolean
+  admin?: boolean
+}
 
 export class SdsPermissionManager {
   constructor(private db: Database) {}
@@ -224,311 +120,791 @@ export class SdsPermissionManager {
   async checkAccess(
     repoDid: string,
     userDid: string,
-    action: 'read' | 'write',
+    action: keyof RepositoryPermissions,
   ): Promise<boolean> {
-    // Owner always has full access (unchanged from PDS)
+    // Owner always has full access (maintains PDS behavior)
     if (repoDid === userDid) return true
 
-    // PoC: Simple permission check
+    // Check shared permissions
     const result = await this.db
-      .selectFrom('shared_permissions')
-      .selectAll()
+      .selectFrom('shared_repository_permissions')
+      .select(['permissions'])
       .where('repo_did', '=', repoDid)
       .where('user_did', '=', userDid)
+      .where('revoked_at', 'is', null)
       .executeTakeFirst()
 
     if (!result) return false
 
-    const permissions = JSON.parse(result.permissions)
+    const permissions: RepositoryPermissions = JSON.parse(result.permissions)
     return permissions[action] ?? false
   }
 
   async grantAccess(
     repoDid: string,
     userDid: string,
+    permissions: RepositoryPermissions,
     grantedBy: string,
   ): Promise<void> {
-    // PoC: Simple grant with default permissions
+    const permissionsJson = JSON.stringify(permissions)
+
+    // Insert or update permissions
     await this.db
-      .insertInto('shared_permissions')
+      .insertInto('shared_repository_permissions')
       .values({
         repo_did: repoDid,
         user_did: userDid,
+        permissions: permissionsJson,
         granted_by: grantedBy,
       })
-      .onConflict((oc) => oc.doNothing())
+      .onConflict((oc) =>
+        oc.columns(['repo_did', 'user_did']).doUpdateSet({
+          permissions: permissionsJson,
+          granted_by: grantedBy,
+          granted_at: new Date().toISOString(),
+          revoked_at: null,
+        }),
+      )
+      .execute()
+
+    // Log the change
+    await this.logPermissionChange(
+      repoDid,
+      userDid,
+      'grant',
+      null,
+      permissions,
+      grantedBy,
+    )
+  }
+
+  async revokeAccess(
+    repoDid: string,
+    userDid: string,
+    revokedBy: string,
+  ): Promise<void> {
+    const currentPerms = await this.getPermissions(repoDid, userDid)
+
+    await this.db
+      .updateTable('shared_repository_permissions')
+      .set({ revoked_at: new Date().toISOString() })
+      .where('repo_did', '=', repoDid)
+      .where('user_did', '=', userDid)
+      .execute()
+
+    await this.logPermissionChange(
+      repoDid,
+      userDid,
+      'revoke',
+      currentPerms,
+      null,
+      revokedBy,
+    )
+  }
+
+  private async logPermissionChange(
+    repoDid: string,
+    userDid: string,
+    action: string,
+    permissionsBefore: RepositoryPermissions | null,
+    permissionsAfter: RepositoryPermissions | null,
+    changedBy: string,
+  ): Promise<void> {
+    await this.db
+      .insertInto('permission_audit_log')
+      .values({
+        repo_did: repoDid,
+        user_did: userDid,
+        action,
+        permissions_before: permissionsBefore
+          ? JSON.stringify(permissionsBefore)
+          : null,
+        permissions_after: permissionsAfter
+          ? JSON.stringify(permissionsAfter)
+          : null,
+        changed_by: changedBy,
+      })
       .execute()
   }
 }
 ```
 
-#### 2.2 Auth Extension (Minimal Override)
+### Phase 2: Authentication & Authorization Integration (Week 2-3)
 
-**PoC Strategy**: Intercept key endpoints only, reuse all PDS auth patterns
+#### 2.1 Auth Verifier Enhancement
+
+**Approach**: Modify existing PDS auth verifier to check shared repository permissions
+
+**File**: `packages/sds/src/auth-verifier.ts` (modify existing PDS auth verifier)
 
 ```typescript
-// packages/sds/src/api/com/atproto/repo/createRecord.ts
-// Override PDS endpoint to add permission check
-import { createRecord as pdsCreateRecord } from '@atproto/pds/dist/api/com/atproto/repo/createRecord'
+// Extend existing PDS auth verifier with SDS permission checks
+import { AuthVerifier as PdsAuthVerifier } from '@atproto/pds/src/auth-verifier'
+import { SdsPermissionManager } from './permission-manager'
 
-export default function (server: Server, ctx: SdsContext) {
-  return pdsCreateRecord(server, {
-    ...ctx,
-    // Override only the auth check
-    authVerifier: {
-      ...ctx.authVerifier,
-      authorization: (opts) => {
-        const baseAuth = ctx.authVerifier.authorization(opts)
-        return async (reqCtx) => {
-          const result = await baseAuth(reqCtx)
+export class SdsAuthVerifier extends PdsAuthVerifier {
+  constructor(
+    // ... existing PDS auth verifier parameters
+    private permissionManager: SdsPermissionManager,
+  ) {
+    super(/* ... existing parameters */)
+  }
 
-          // Add SDS permission check
-          if (reqCtx.input.body.repo !== result.credentials.did) {
-            const hasAccess = await ctx.permissionManager.checkAccess(
-              reqCtx.input.body.repo,
-              result.credentials.did,
-              'write',
-            )
-            if (!hasAccess) {
-              throw new AuthRequiredError('No permission for shared repo')
-            }
-          }
+  // Override the authorization method to add shared repository checks
+  authorization(opts: AuthorizationOptions = {}) {
+    const baseAuth = super.authorization(opts)
 
-          return result
+    return async (reqCtx: RequestContext) => {
+      // First, run standard PDS authorization
+      const authResult = await baseAuth(reqCtx)
+
+      // Extract repository DID from request (varies by endpoint)
+      const repoDid = this.extractRepoDid(reqCtx)
+
+      if (repoDid && repoDid !== authResult.credentials.did) {
+        // This is a cross-repository request - check SDS permissions
+        const action = this.determineRequiredAction(reqCtx)
+        const hasAccess = await this.permissionManager.checkAccess(
+          repoDid,
+          authResult.credentials.did,
+          action,
+        )
+
+        if (!hasAccess) {
+          throw new AuthRequiredError(
+            `No ${action} permission for repository ${repoDid}`,
+            'Forbidden',
+          )
         }
-      },
-    },
-  })
+      }
+
+      return authResult
+    }
+  }
+
+  private extractRepoDid(reqCtx: RequestContext): string | null {
+    // Extract repo DID from various request contexts
+    if (reqCtx.input?.body?.repo) return reqCtx.input.body.repo
+    if (reqCtx.params?.repo) return reqCtx.params.repo
+    // Add other patterns as needed
+    return null
+  }
+
+  private determineRequiredAction(reqCtx: RequestContext): 'read' | 'write' {
+    // Determine if this is a read or write operation based on the endpoint
+    const method = reqCtx.req.method?.toLowerCase()
+    const path = reqCtx.req.path
+
+    // Write operations
+    if (method === 'post' || method === 'put' || method === 'delete') {
+      return 'write'
+    }
+
+    // Specific endpoint patterns for write operations
+    if (
+      path?.includes('createRecord') ||
+      path?.includes('putRecord') ||
+      path?.includes('deleteRecord') ||
+      path?.includes('uploadBlob')
+    ) {
+      return 'write'
+    }
+
+    // Default to read for GET operations and other cases
+    return 'read'
+  }
 }
 ```
 
-### Phase 3: Integration & Testing (Week 3)
+#### 2.2 Context Integration
 
-#### 3.1 Simple API Extension
-
-**PoC Strategy**: Add one new endpoint for sharing, reuse everything else
+**File**: `packages/sds/src/context.ts` (modify existing PDS context)
 
 ```typescript
-// packages/sds/src/api/com/sds/repo/grantAccess.ts
-// New endpoint following PDS patterns exactly
-export default function (server: Server, ctx: SdsContext) {
-  server.addLexicon({
-    lexicon: 1,
-    id: 'com.sds.repo.grantAccess',
-    defs: {
-      main: {
-        type: 'procedure',
-        input: {
-          encoding: 'application/json',
-          schema: {
-            type: 'object',
-            required: ['repo', 'userDid'],
-            properties: {
-              repo: { type: 'string', format: 'did' },
-              userDid: { type: 'string', format: 'did' },
-            },
-          },
-        },
-      },
-    },
-  })
+// Extend existing PDS context with SDS components
+import { AppContext as PdsAppContext } from '@atproto/pds/src/context'
+import { SdsPermissionManager } from './permission-manager'
+import { SdsAuthVerifier } from './auth-verifier'
 
+export interface SdsAppContext extends PdsAppContext {
+  permissionManager: SdsPermissionManager
+  authVerifier: SdsAuthVerifier // Override with SDS version
+}
+
+// Update context creation to include SDS components
+export const createSdsContext = async (
+  cfg: SdsConfig,
+): Promise<SdsAppContext> => {
+  // Create base PDS context
+  const baseContext = await createPdsContext(cfg)
+
+  // Add SDS-specific components
+  const permissionManager = new SdsPermissionManager(baseContext.db)
+
+  // Replace auth verifier with SDS version
+  const authVerifier = new SdsAuthVerifier(
+    // ... existing PDS auth verifier parameters from baseContext
+    permissionManager,
+  )
+
+  return {
+    ...baseContext,
+    permissionManager,
+    authVerifier,
+  }
+}
+```
+
+### Phase 3: SDS-Specific API Endpoints (Week 3-4)
+
+#### 3.1 Permission Management Endpoints
+
+**Approach**: Add new XRPC endpoints while maintaining all existing PDS endpoints
+
+**File**: `packages/sds/src/api/com/sds/repo/grantAccess.ts`
+
+```typescript
+// New SDS endpoint for granting repository access
+import { Server } from '@atproto/xrpc-server'
+import { SdsAppContext } from '../../../context'
+
+export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.grantAccess({
     auth: ctx.authVerifier.authorization(),
-    rateLimit: [
-      { name: 'repo-write-hour', points: 1 }, // Follow PDS rate limit patterns
-    ],
+    rateLimit: [{ name: 'repo-write-hour', points: 1 }],
     handler: async ({ input, auth }) => {
-      const { repo, userDid } = input.body
+      const {
+        repo,
+        userDid,
+        permissions = { read: true, write: true },
+      } = input.body
       const grantedBy = auth.credentials.did
 
-      // Only repo owner can grant access (for PoC)
+      // Only repo owner can grant access initially
       if (repo !== grantedBy) {
         throw new AuthRequiredError('Only repository owner can grant access')
       }
 
-      await ctx.permissionManager.grantAccess(repo, userDid, grantedBy)
-      return { encoding: 'application/json', body: { success: true } }
+      // Validate userDid exists
+      const userExists = await ctx.idResolver.resolve(userDid)
+      if (!userExists) {
+        throw new InvalidRequestError('User DID not found')
+      }
+
+      await ctx.permissionManager.grantAccess(
+        repo,
+        userDid,
+        permissions,
+        grantedBy,
+      )
+
+      return {
+        encoding: 'application/json',
+        body: { success: true },
+      }
     },
   })
 }
 ```
 
-### Phase 4: PoC Demo & Documentation (Week 4)
-
-#### 4.1 Simple Demo & Testing
-
-**PoC Goal**: Demonstrate core sharing concept works
+**File**: `packages/sds/src/api/com/sds/repo/revokeAccess.ts`
 
 ```typescript
-// packages/sds/example/poc-demo.ts
-import { SDS } from '@atproto/sds'
+export default function (server: Server, ctx: SdsAppContext) {
+  server.com.sds.repo.revokeAccess({
+    auth: ctx.authVerifier.authorization(),
+    handler: async ({ input, auth }) => {
+      const { repo, userDid } = input.body
+      const revokedBy = auth.credentials.did
 
-async function pocDemo() {
-  // 1. Start SDS (exactly like PDS)
-  const sds = await SDS.create(config, secrets)
-  await sds.start()
+      // Only repo owner can revoke access
+      if (repo !== revokedBy) {
+        throw new AuthRequiredError('Only repository owner can revoke access')
+      }
 
-  // 2. Create two users (normal PDS flow)
-  const alice = await createAccount({ handle: 'alice.test' })
-  const bob = await createAccount({ handle: 'bob.test' })
+      await ctx.permissionManager.revokeAccess(repo, userDid, revokedBy)
 
-  // 3. Alice grants Bob access to her repo (new SDS endpoint)
-  await sds.com.sds.repo.grantAccess({
-    repo: alice.did,
-    userDid: bob.did,
+      return {
+        encoding: 'application/json',
+        body: { success: true },
+      }
+    },
   })
-
-  // 4. Bob creates record in Alice's repo (existing PDS endpoint!)
-  await sds.com.atproto.repo.createRecord({
-    repo: alice.did, // <- Bob writing to Alice's repo
-    collection: 'app.bsky.feed.post',
-    record: { text: 'Bob wrote this in Alice repo!' },
-  })
-
-  console.log('✅ PoC Success: Shared repository working!')
 }
 ```
 
-## PoC Deliverables Summary
+**File**: `packages/sds/src/api/com/sds/repo/listCollaborators.ts`
 
-**Week 1**: Working SDS server that starts up ✅
-**Week 2**: Permission system + basic auth checks ✅
-**Week 3**: One shared repository demo working ✅
-**Week 4**: Documentation + demo video ✅
+```typescript
+export default function (server: Server, ctx: SdsAppContext) {
+  server.com.sds.repo.listCollaborators({
+    auth: ctx.authVerifier.authorization(),
+    handler: async ({ input, auth }) => {
+      const { repo } = input.params
+      const requestedBy = auth.credentials.did
 
-**Total Implementation**: ~500 lines of new code, 95% PDS reuse
+      // Check if user has read access to the repository
+      const hasAccess = await ctx.permissionManager.checkAccess(
+        repo,
+        requestedBy,
+        'read',
+      )
+      if (!hasAccess) {
+        throw new AuthRequiredError('No access to repository')
+      }
 
-## Answers to Open Questions (Based on PDS Patterns)
+      const collaborators = await ctx.permissionManager.listCollaborators(repo)
 
-### 1. **Blob Permission Alignment** ✅ **Implemented**
+      return {
+        encoding: 'application/json',
+        body: { collaborators },
+      }
+    },
+  })
+}
+```
 
-- **Answer**: Blob access = record access (simplest approach)
-- **PDS Pattern**: BlobReader checks against record ownership, we extend this
-- **Implementation**: Override `packages/pds/src/actor-store/blob/reader.ts` permission check
+#### 3.2 Lexicon Definitions
 
-### 2. **Revocation Edge Cases** ✅ **Implemented**
+**File**: `packages/sds/lexicons/com/sds/repo/grantAccess.json`
 
-- **Answer**: Real-time permission checks at request time
-- **PDS Pattern**: AuthVerifier checks happen on every request anyway
-- **Implementation**: Permission check in auth middleware (no caching for PoC)
+```json
+{
+  "lexicon": 1,
+  "id": "com.sds.repo.grantAccess",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Grant access to a repository for collaborative editing",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repo", "userDid"],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "format": "did",
+              "description": "Repository DID to grant access to"
+            },
+            "userDid": {
+              "type": "string",
+              "format": "did",
+              "description": "User DID to grant access to"
+            },
+            "permissions": {
+              "type": "object",
+              "description": "Permissions to grant",
+              "properties": {
+                "read": { "type": "boolean" },
+                "write": { "type": "boolean" },
+                "admin": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success"],
+          "properties": {
+            "success": { "type": "boolean" }
+          }
+        }
+      },
+      "errors": [{ "name": "AuthRequired" }, { "name": "InvalidRequest" }]
+    }
+  }
+}
+```
 
-### 3. **Rate Limiting for Shared Users**
+### Phase 4: Integration & Testing (Week 4)
 
-- **Answer**: Follow PDS rate limit patterns exactly
-- **PDS Pattern**: Points-based system with user quotas in `index.ts:106-143`
-- **Implementation**: Shared users count toward owner's quota for PoC
+#### 4.1 Main SDS Server Class
 
-### 4. **Conflict Resolution**
+**File**: `packages/sds/src/index.ts` (replace existing)
 
-- **Answer**: Use existing ATProto `swapCommit` pattern
-- **PDS Pattern**: Repository transactions already handle concurrency in `repo/transactor.ts`
-- **Implementation**: No changes needed - PDS patterns work for shared repos
+```typescript
+// Main SDS entry point - extends PDS with sharing capabilities
+import { PDS, ServerConfig, ServerSecrets } from '@atproto/pds'
+import type { AppContextOptions } from '@atproto/pds'
+import { createSdsContext, SdsAppContext } from './context'
+import { SdsPermissionManager } from './permission-manager'
 
-### 5. **Key Management**
+export interface SdsConfig extends ServerConfig {
+  sharing: {
+    maxCollaborators: number
+    enableAuditLog: boolean
+  }
+}
 
-- **Answer**: File-based keys for PoC, same as PDS
-- **PDS Pattern**: `createSecretKeyObject()` in `auth-verifier.ts`
-- **Implementation**: Reuse existing PDS key management completely
+export class SDS extends PDS {
+  public permissionManager!: SdsPermissionManager
+  declare ctx: SdsAppContext // Override context type
 
-## Minimal Code Changes Summary
+  static async create(
+    cfg: SdsConfig,
+    secrets: ServerSecrets,
+    overrides?: Partial<AppContextOptions>,
+  ): Promise<SDS> {
+    // Create SDS context (which includes PDS context + SDS extensions)
+    const ctx = await createSdsContext(cfg)
 
-### What We Reuse (95%):
+    // Create PDS with SDS context
+    const sds = await super.create(cfg, secrets, { ...overrides, ctx })
 
-- ✅ All database patterns (`Database`, `ActorStore`, etc.)
-- ✅ Complete repository management (`repo/`, `sequencer/`)
-- ✅ Blob storage handling (`BlobReader`, `DiskBlobStore`)
-- ✅ Authentication infrastructure (`AuthVerifier`, OAuth flows)
-- ✅ Identity resolution (`IdResolver`, DID handling)
-- ✅ XRPC server framework & routing
-- ✅ Rate limiting system (reuse exact patterns)
-- ✅ Configuration & environment handling
-- ✅ Logging, monitoring, background queues
+    // Cast to SDS and add SDS-specific properties
+    const sdsInstance = sds as unknown as SDS
+    sdsInstance.permissionManager = ctx.permissionManager
 
-### What We Add (5%):
+    return sdsInstance
+  }
 
-- 🆕 `SdsPermissionManager` (~50 lines)
-- 🆕 2 database tables (`shared_permissions`, `permission_changes`)
-- 🆕 1 new API endpoint (`com.sds.repo.grantAccess`)
-- 🆕 Auth middleware override for permission checks (~50 lines)
-- 🆕 SDS server wrapper class (~100 lines)
+  // SDS-specific helper methods
+  async checkRepositoryAccess(
+    repoDid: string,
+    userDid: string,
+    action: 'read' | 'write' = 'read',
+  ): Promise<boolean> {
+    return await this.permissionManager.checkAccess(repoDid, userDid, action)
+  }
+}
 
-### PoC Code Estimate:
+// Re-export all PDS functionality plus SDS extensions
+export * from '@atproto/pds'
+export { SdsPermissionManager } from './permission-manager'
+export type { SdsAppContext } from './context'
+```
 
-- **New files**: 6 files (~500 lines total)
-- **Modified files**: 0 (pure composition)
-- **Reused PDS code**: 95%+ (entire codebase)
-- **Development time**: 3-4 weeks vs 6-7 weeks original
+#### 4.2 Testing Strategy
 
-This streamlined approach validates the core concept quickly while building a foundation for future expansion.
+**Integration Tests**: `packages/sds/tests/sharing.test.ts`
 
-## Architectural Decisions
+```typescript
+describe('SDS Sharing Functionality', () => {
+  let sds: SDS
+  let alice: { did: string; agent: AtpAgent }
+  let bob: { did: string; agent: AtpAgent }
 
-Based on the requirements analysis, we've made the following key decisions:
+  beforeAll(async () => {
+    sds = await createTestSds()
+    alice = await createTestUser(sds, 'alice')
+    bob = await createTestUser(sds, 'bob')
+  })
 
-### 1. Repository Identity & Signing
+  test('repository owner can grant access', async () => {
+    await alice.agent.com.sds.repo.grantAccess({
+      repo: alice.did,
+      userDid: bob.did,
+      permissions: { read: true, write: true },
+    })
 
-- **Decision**: Each shared repository gets a new organizational DID document
-- **Rationale**: Shared repos are distinct entities (communities/organizations) separate from individual users
-- **Implementation**: Generate `did:plc` for each shared repo with SDS as the service endpoint
-- **Signing**: Per-collaborator signing authority using individual user keys with delegation
+    const hasAccess = await sds.checkRepositoryAccess(
+      alice.did,
+      bob.did,
+      'write',
+    )
+    expect(hasAccess).toBe(true)
+  })
 
-### 2. Authorization Granularity
+  test('collaborator can write to shared repository', async () => {
+    // Grant access
+    await alice.agent.com.sds.repo.grantAccess({
+      repo: alice.did,
+      userDid: bob.did,
+    })
 
-- **Phase 1**: Collection-level permissions (read/write/admin per collection)
-- **Future**: Progressive enhancement to record-level and blob-level as needed
-- **Rationale**: Start simple, expand complexity incrementally based on usage patterns
+    // Bob creates record in Alice's repository
+    const result = await bob.agent.com.atproto.repo.createRecord({
+      repo: alice.did, // Bob writing to Alice's repo
+      collection: 'app.bsky.feed.post',
+      record: {
+        text: "Bob wrote this in Alice's repository!",
+        createdAt: new Date().toISOString(),
+      },
+    })
 
-### 3. Conflict Resolution
+    expect(result.success).toBe(true)
+  })
 
-- **Strategy**: Optimistic concurrency with revision-based conflict detection
-- **Implementation**: Follow ATProto's existing `swapCommit` pattern for atomic updates
-- **Fallback**: Last-writer-wins for unresolved conflicts
+  test('access can be revoked', async () => {
+    // Grant then revoke access
+    await alice.agent.com.sds.repo.grantAccess({
+      repo: alice.did,
+      userDid: bob.did,
+    })
 
-### 4. Permission Model
+    await alice.agent.com.sds.repo.revokeAccess({
+      repo: alice.did,
+      userDid: bob.did,
+    })
 
-- **Initial**: Equal collaborator permissions (all have read/write/admin)
-- **Audit**: Immutable audit trails for all permission changes
-- **Future**: Consider UCAN-based capability system for fine-grained permissions
+    // Bob should no longer have access
+    await expect(
+      bob.agent.com.atproto.repo.createRecord({
+        repo: alice.did,
+        collection: 'app.bsky.feed.post',
+        record: { text: 'This should fail' },
+      }),
+    ).rejects.toThrow('No write permission')
+  })
+})
+```
 
-### 5. API Design
+## Implementation Benefits & Trade-offs
 
-- **Namespace**: Use `com.atproto.sds.*` for SDS-specific endpoints
-- **Compatibility**: Existing `com.atproto.repo.*` endpoints accept any DID parameter
-- **Discovery**: Add `.well-known/sds-capabilities` endpoint for client discovery
+### Benefits of Copy-and-Modify Approach
 
-### 6. Database Architecture
+✅ **Complete Interface Compatibility**
 
-- **Strategy**: Extend existing PDS database with additional tables
-- **Migration**: Additive-only schema changes, no breaking modifications
-- **Isolation**: SDS tables prefix for clear separation
+- SDS maintains 100% API compatibility with PDS
+- Existing clients work without any changes
+- Federation with PDS instances is seamless
 
-### 7. Operational Policies
+✅ **Full Control Over Internal Logic**
 
-- **Privacy**: Public collaborator membership by default
-- **Rate Limits**: Follow PDS standards with per-collaborator quotas
-- **Export**: Permission-based access to CAR exports
-- **TTL**: On-read permission expiry checks with background cleanup
+- Can modify any component without dependency conflicts
+- No version compatibility issues between SDS and PDS
+- Complete flexibility in implementation choices
 
-### Open Questions (For Future Phases)
+✅ **Simplified Deployment**
 
-**Remaining Questions for Future Implementation:**
+- Single package deployment (no complex dependencies)
+- All PDS functionality included and working
+- Easier to maintain and update
 
-- [ ] **Federation semantics**: How do shared repo commits replicate to other ATProto services? What PLC/directory changes are needed for discovery?
-- [ ] **Cross-server sharing**: Can users on different PDSes collaborate on the same SDS repo? What authentication flow?
-- [ ] **Feed generator compatibility**: How do existing feed algorithms handle shared authorship? Need protocol changes?
-- [ ] **Blob permission alignment**: Should blob access perfectly mirror record permissions or have separate controls?
-- [ ] **Revocation edge cases**: How to handle mid-flight requests when permissions are revoked during processing?
-- [ ] **Multi-tenant isolation**: For hosting multiple organizations, what separation is needed (keys, storage, rate limits)?
-- [ ] **Advanced key management**: HSM/KMS integration for enterprise deployments?
-- [ ] **Event streaming**: Webhooks for permission changes, with retry and security considerations?
-- [ ] **Migration tooling**: Automated tools to convert personal repos to shared repos?
-- [ ] **Legal framework**: Content ownership, data retention policies, and jurisdictional compliance?
-- [ ] **Performance monitoring**: Key metrics for permission checks, conflict rates, and collaborative efficiency?
-- [ ] **Testing standards**: Conformance tests for SDS implementations and interoperability fixtures?
+✅ **Rapid Development**
 
-**Technical Deep Dives Needed:**
+- Start with working PDS foundation
+- Add sharing features incrementally
+- Lower risk of breaking core functionality
 
-- [ ] **Sequencer ordering**: Multi-writer scenarios may need additional ordering guarantees beyond current ATProto sequencer
-- [ ] **Cache invalidation**: How permission changes affect client caches, gateways, and mirrors across the network
-- [ ] **Error standardization**: Comprehensive error codes for SDS-specific failures to improve client developer experience
+### Trade-offs
+
+⚠️ **Code Duplication**
+
+- SDS package duplicates entire PDS codebase
+- Need to manually sync important PDS updates
+- Larger package size
+
+⚠️ **Maintenance Overhead**
+
+- Must track PDS changes for security/bug fixes
+- Need to merge relevant upstream changes
+- Potential divergence from PDS over time
+
+### Mitigation Strategies
+
+🔧 **Structured Update Process**
+
+- Regular review of PDS changes for security fixes
+- Automated testing to catch breaking changes
+- Clear documentation of SDS-specific modifications
+
+🔧 **Modular SDS Extensions**
+
+- Keep SDS-specific code clearly separated
+- Use clear naming conventions (SDS prefix)
+- Minimize changes to core PDS logic where possible
+
+## Revised Architectural Decisions
+
+Based on the copy-and-modify approach, here are the updated architectural decisions:
+
+### 1. Repository Access Model
+
+**Decision**: Individual user repositories can be shared with other users while maintaining owner control
+
+**Implementation**:
+
+- Repository owner (DID) remains the primary authority
+- Additional users can be granted read/write permissions
+- All existing PDS endpoints work with any repository DID
+- Permission checks happen at the authentication layer
+
+### 2. Database Schema Strategy
+
+**Decision**: Extend existing PDS database with additional tables for sharing
+
+**Benefits**:
+
+- No changes to existing PDS tables or data
+- All existing PDS functionality continues to work
+- Clear separation between PDS core and SDS extensions
+- Easy to migrate data if needed
+
+### 3. Authentication & Authorization
+
+**Decision**: Enhance existing PDS auth verifier to check sharing permissions
+
+**Implementation**:
+
+- Extend PDS AuthVerifier class with permission checks
+- Maintain all existing PDS authentication patterns
+- Add shared repository permission validation
+- Preserve all existing security mechanisms
+
+### 4. API Surface Compatibility
+
+**Decision**: Maintain 100% PDS API compatibility plus add new SDS endpoints
+
+**Result**:
+
+- All existing `com.atproto.*` endpoints work unchanged
+- New `com.sds.*` endpoints added for sharing management
+- Existing clients work without modification
+- Federation with PDS instances is seamless
+
+### 5. Federation Strategy
+
+**Decision**: SDS instances appear as standard PDS instances to the network
+
+**Benefits**:
+
+- No protocol changes needed
+- Existing infrastructure supports SDS
+- Gradual adoption possible
+- No breaking changes to ecosystem
+
+## Next Steps for Implementation
+
+### Immediate Priorities (Week 1-2)
+
+**Goal**: Implement the core multi-user permission system in the existing SDS package
+
+#### 1. Create Missing SDS Components
+
+The current SDS package has the PDS foundation but is missing the sharing-specific components:
+
+```bash
+# Files that need to be created:
+packages/sds/src/permission-manager/index.ts
+packages/sds/src/account-manager/db/migrations/007-sds-sharing.sql
+packages/sds/src/api/com/sds/repo/grantAccess.ts
+packages/sds/src/api/com/sds/repo/revokeAccess.ts
+packages/sds/src/api/com/sds/repo/listCollaborators.ts
+packages/sds/lexicons/com/sds/repo/grantAccess.json
+packages/sds/lexicons/com/sds/repo/revokeAccess.json
+packages/sds/lexicons/com/sds/repo/listCollaborators.json
+```
+
+#### 2. Enhance Authentication System
+
+Modify the existing auth verifier in the SDS package to support shared repository access:
+
+- Extend `packages/sds/src/auth-verifier.ts`
+- Update `packages/sds/src/context.ts` to include permission manager
+- Ensure all existing PDS endpoints work with shared repositories
+
+#### 3. Database Schema Updates
+
+Add the sharing tables to the SDS database:
+
+- Create migration `007-sds-sharing.sql`
+- Add permission management tables
+- Ensure compatibility with existing PDS data
+
+### Testing & Validation (Week 2-3)
+
+#### 1. Unit Tests
+
+- Permission manager functionality
+- Auth verifier enhancements
+- Database operations
+
+#### 2. Integration Tests
+
+- Multi-user repository access
+- Permission granting/revoking
+- Federation compatibility
+
+#### 3. Manual Testing
+
+- Start SDS server
+- Create test users
+- Test sharing workflows
+- Verify PDS compatibility
+
+### Key Success Criteria
+
+✅ **SDS maintains complete PDS API compatibility**
+✅ **Multi-user repository access works end-to-end**
+✅ **Federation with existing PDS instances is seamless**
+✅ **All existing PDS functionality remains intact**
+✅ **New SDS endpoints for sharing management work correctly**
+
+### Long-term Considerations
+
+- **Security**: Comprehensive permission validation
+- **Performance**: Efficient permission checks at scale
+- **Monitoring**: Audit logs and access tracking
+- **Documentation**: Clear migration path from PDS to SDS
+- **Maintenance**: Process for syncing important PDS updates
+
+## Current Implementation Status
+
+### SDS Package Foundation: Complete ✅
+
+The SDS package has been successfully created with:
+
+- **Complete PDS codebase copied** and operational
+- **Package configuration updated** with correct dependencies and scripts
+- **Build system working** (TypeScript compilation, tests, development server)
+- **All existing PDS functionality intact** and ready for enhancement
+
+### What's Missing: Multi-User Sharing Components
+
+The SDS package currently functions as a complete PDS but lacks the sharing-specific components:
+
+- **Permission management system** (not yet implemented)
+- **Shared repository database tables** (migration not created)
+- **Enhanced authentication** (auth verifier not extended)
+- **SDS-specific API endpoints** (sharing management endpoints not added)
+- **Integration tests** (sharing workflow tests not written)
+
+### Implementation Readiness: High ✅
+
+The foundation is solid and ready for the multi-user sharing implementation:
+
+- All PDS patterns and infrastructure available for extension
+- Database system ready for additional sharing tables
+- Authentication framework ready for enhancement
+- API system ready for new endpoints
+- Testing framework ready for sharing tests
+
+## Summary
+
+The ATProto Shared Data Server (SDS) implementation plan has been updated to reflect the current **copy-and-modify** approach rather than the original inheritance strategy.
+
+### Key Changes Made
+
+✅ **Approach Updated**: From PDS inheritance to complete PDS codebase copying
+✅ **Architecture Revised**: Focus on internal business logic modifications
+✅ **Implementation Phases Updated**: Emphasis on adding multi-user support to existing SDS foundation
+✅ **Benefits & Trade-offs Clarified**: Clear understanding of maintenance implications
+✅ **Next Steps Defined**: Concrete roadmap for implementing sharing functionality
+
+### Core Principles Maintained
+
+🎯 **PDS Interface Compatibility**: SDS maintains 100% API compatibility with PDS for seamless federation
+🎯 **Multi-User Data Repository**: Enable multiple users to control shared data repositories
+🎯 **Zero Federation Breaking**: SDS instances federate normally with existing PDS instances
+🎯 **Internal Flexibility**: Full control over authentication, authorization, and data access patterns
+
+### Ready for Implementation
+
+The SDS package foundation is complete and ready for the multi-user sharing implementation. The next step is to implement the missing components:
+
+1. **Permission management system**
+2. **Database schema extensions**
+3. **Enhanced authentication**
+4. **SDS-specific API endpoints**
+5. **Integration testing**
+
+This approach provides a clear, practical path forward that maintains the benefits of the original plan while working with the current implementation reality.
+
+---
+
+_This implementation plan reflects the current state of the SDS package and provides a clear roadmap for adding multi-user shared repository functionality while maintaining complete PDS compatibility and federation support._
