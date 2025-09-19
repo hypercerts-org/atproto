@@ -104,6 +104,25 @@ const LEXICONS: readonly LexiconDoc[] = [
   },
   {
     lexicon: 1,
+    id: 'com.sds.organization.create',
+    defs: {
+      main: {
+        type: 'permission-set',
+        title: 'SDS Organization Creation',
+        detail: 'Create new organizations with shared repositories',
+        permissions: [
+          {
+            type: 'permission',
+            resource: 'rpc',
+            inheritAud: true,
+            lxm: ['com.sds.organization.create'],
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
     id: 'com.example.calendar.basePermissions',
     defs: {
       main: {

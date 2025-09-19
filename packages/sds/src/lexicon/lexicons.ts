@@ -13788,6 +13788,102 @@ export const schemaDict = {
       },
     },
   },
+  ComSdsOrganizationCreate: {
+    lexicon: 1,
+    id: 'com.sds.organization.create',
+    defs: {
+      main: {
+        type: 'procedure',
+        description:
+          'Create a new organization with its own repository that can be shared with collaborators. The creator becomes the owner with full admin privileges.',
+        input: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: {
+                type: 'string',
+                maxLength: 100,
+                description: 'The name of the organization.',
+              },
+              description: {
+                type: 'string',
+                maxLength: 500,
+                description: 'Optional description of the organization.',
+              },
+              handle: {
+                type: 'string',
+                format: 'handle',
+                description:
+                  'Optional custom handle for the organization. If not provided, will be auto-generated.',
+              },
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: [
+              'did',
+              'handle',
+              'name',
+              'createdAt',
+              'permissions',
+              'accessType',
+            ],
+            properties: {
+              did: {
+                type: 'string',
+                format: 'did',
+                description: 'The DID of the created organization repository.',
+              },
+              handle: {
+                type: 'string',
+                format: 'handle',
+                description: 'The handle of the organization.',
+              },
+              name: {
+                type: 'string',
+                description: 'The name of the organization.',
+              },
+              description: {
+                type: 'string',
+                description: 'The description of the organization.',
+              },
+              createdAt: {
+                type: 'string',
+                format: 'datetime',
+                description: 'When the organization was created.',
+              },
+              permissions: {
+                type: 'ref',
+                ref: 'lex:com.sds.repo.grantAccess#permissions',
+                description:
+                  "The creator's permissions for this organization (always full admin).",
+              },
+              accessType: {
+                type: 'string',
+                knownValues: ['owner'],
+                description: "The creator's access type (always owner).",
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'InvalidName',
+            description: 'The organization name is invalid or already in use.',
+          },
+          {
+            name: 'HandleTaken',
+            description: 'The specified handle is already taken.',
+          },
+        ],
+      },
+    },
+  },
   ComSdsRepoGetPermissions: {
     lexicon: 1,
     id: 'com.sds.repo.getPermissions',
@@ -18990,6 +19086,7 @@ export const ids = {
     'com.atproto.temp.requestPhoneVerification',
   ComAtprotoTempRevokeAccountCredentials:
     'com.atproto.temp.revokeAccountCredentials',
+  ComSdsOrganizationCreate: 'com.sds.organization.create',
   ComSdsRepoGetPermissions: 'com.sds.repo.getPermissions',
   ComSdsRepoGrantAccess: 'com.sds.repo.grantAccess',
   ComSdsRepoListCollaborators: 'com.sds.repo.listCollaborators',

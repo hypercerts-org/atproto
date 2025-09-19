@@ -1916,6 +1916,9 @@ importers:
       '@atproto/api':
         specifier: workspace:*
         version: link:../api
+      '@atproto/lexicon':
+        specifier: workspace:*
+        version: link:../lexicon
       '@atproto/oauth-client':
         specifier: workspace:*
         version: link:../oauth/oauth-client
@@ -1925,6 +1928,9 @@ importers:
       '@atproto/oauth-types':
         specifier: workspace:*
         version: link:../oauth/oauth-types
+      '@atproto/sds':
+        specifier: workspace:*
+        version: link:../sds
       '@atproto/xrpc':
         specifier: workspace:*
         version: link:../xrpc

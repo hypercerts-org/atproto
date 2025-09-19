@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "com.sds.organization",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A record representing an organization/shared repository.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "createdBy", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "The name of the organization."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Optional description of the organization."
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the user who created this organization."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the organization was created."
+          }
+        }
+      }
+    }
+  }
+}

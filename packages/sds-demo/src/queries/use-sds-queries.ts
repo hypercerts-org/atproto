@@ -149,6 +149,31 @@ export function useRevokeAccessMutation() {
   })
 }
 
+// List organizations for the current user
+export function useListOrganizationsQuery() {
+  const auth = useAuthContext()
+
+  return useQuery({
+    queryKey: ['sds', 'organizations'],
+    queryFn: async (): Promise<any[]> => {
+      if (!auth.signedIn || !auth.agent) throw new Error('No agent available')
+
+      try {
+        const response = await auth.agent.call('com.atproto.repo.listRecords', {
+          repo: auth.session.did,
+          collection: 'com.sds.organization',
+        })
+        return response.data.records || []
+      } catch (error) {
+        console.error('Error fetching organizations:', error)
+        // Return empty array for graceful fallback
+        return []
+      }
+    },
+    enabled: auth.signedIn && !!auth.agent,
+  })
+}
+
 // Create record in shared repository
 export function useCreateRecordMutation() {
   const auth = useAuthContext()

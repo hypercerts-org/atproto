@@ -201,6 +201,7 @@ import * as ComAtprotoTempCheckSignupQueue from './types/com/atproto/temp/checkS
 import * as ComAtprotoTempFetchLabels from './types/com/atproto/temp/fetchLabels.js'
 import * as ComAtprotoTempRequestPhoneVerification from './types/com/atproto/temp/requestPhoneVerification.js'
 import * as ComAtprotoTempRevokeAccountCredentials from './types/com/atproto/temp/revokeAccountCredentials.js'
+import * as ComSdsOrganizationCreate from './types/com/sds/organization/create.js'
 import * as ComSdsRepoGetPermissions from './types/com/sds/repo/getPermissions.js'
 import * as ComSdsRepoGrantAccess from './types/com/sds/repo/grantAccess.js'
 import * as ComSdsRepoListCollaborators from './types/com/sds/repo/listCollaborators.js'
@@ -2957,11 +2958,33 @@ export class ComAtprotoTempNS {
 
 export class ComSdsNS {
   _server: Server
+  organization: ComSdsOrganizationNS
   repo: ComSdsRepoNS
 
   constructor(server: Server) {
     this._server = server
+    this.organization = new ComSdsOrganizationNS(server)
     this.repo = new ComSdsRepoNS(server)
+  }
+}
+
+export class ComSdsOrganizationNS {
+  _server: Server
+
+  constructor(server: Server) {
+    this._server = server
+  }
+
+  create<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsOrganizationCreate.QueryParams,
+      ComSdsOrganizationCreate.HandlerInput,
+      ComSdsOrganizationCreate.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.organization.create' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
   }
 }
 

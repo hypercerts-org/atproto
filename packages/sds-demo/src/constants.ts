@@ -36,6 +36,7 @@ export const OAUTH_SCOPE: string =
         'include:com.sds.repo.revokeAccess',
         'include:com.sds.repo.listCollaborators',
         'include:com.sds.repo.getPermissions',
+        'include:com.sds.organization.create',
       ].join(' ')
     : [
         'atproto',

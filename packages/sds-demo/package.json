@@ -32,9 +32,11 @@
   "devDependencies": {
     "@atproto-labs/rollup-plugin-bundle-manifest": "workspace:*",
     "@atproto/api": "workspace:*",
+    "@atproto/lexicon": "workspace:*",
     "@atproto/oauth-client": "workspace:*",
     "@atproto/oauth-client-browser": "workspace:*",
     "@atproto/oauth-types": "workspace:*",
+    "@atproto/sds": "workspace:*",
     "@atproto/xrpc": "workspace:*",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-html": "^1.0.4",

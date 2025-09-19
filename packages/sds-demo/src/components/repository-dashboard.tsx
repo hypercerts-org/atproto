@@ -1,16 +1,21 @@
-import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useAuthContext } from '../auth/auth-provider.tsx'
 import {
   Repository,
   useRepositoryContext,
 } from '../contexts/repository-context.tsx'
-import { useCreateRecordMutation } from '../queries/use-sds-queries.ts'
+import {
+  useCreateRecordMutation,
+  useListOrganizationsQuery,
+} from '../queries/use-sds-queries.ts'
 import { retryApiCall } from '../utils/api-retry.ts'
 import { Button } from './button.tsx'
 import { Spinner } from './spinner.tsx'
 
 export function RepositoryDashboard() {
-  const { session } = useAuthContext()
+  const auth = useAuthContext()
+  const { session } = auth
   const { repositories, addRepository, setSelectedRepo } =
     useRepositoryContext()
   const [loading, setLoading] = useState(false)
@@ -21,6 +26,33 @@ export function RepositoryDashboard() {
   const [newOrgDescription, setNewOrgDescription] = useState('')
 
   const createRecordMutation = useCreateRecordMutation()
+  const organizationsQuery = useListOrganizationsQuery()
+
+  // Load existing organizations on component mount
+  useEffect(() => {
+    if (organizationsQuery.data && organizationsQuery.data.length > 0) {
+      const existingOrgs: Repository[] = organizationsQuery.data.map(
+        (record: any) => ({
+          did: session?.did || '',
+          handle:
+            record.value.name.toLowerCase().replace(/\s+/g, '-') + '.sds.local',
+          accessType: 'owner' as const,
+          permissions: { read: true, write: true },
+          collaboratorCount: 1,
+        }),
+      )
+
+      // Add organizations that aren't already in the repository list
+      existingOrgs.forEach((org) => {
+        const exists = repositories.some(
+          (repo) => repo.did === org.did && repo.handle === org.handle,
+        )
+        if (!exists) {
+          addRepository(org)
+        }
+      })
+    }
+  }, [organizationsQuery.data, session?.did, repositories, addRepository])
 
   // Start with empty state - users will create their own organizations
 
@@ -29,26 +61,26 @@ export function RepositoryDashboard() {
 
     setLoading(true)
     try {
-      // Create an organization record as a post (for demo purposes)
-      await retryApiCall(async () => {
-        return createRecordMutation.mutateAsync({
-          repo: session.did,
-          collection: 'app.bsky.feed.post',
-          record: {
-            text: `🏢 Organization Created: ${newOrgName.trim()}${newOrgDescription.trim() ? `\n\n${newOrgDescription.trim()}` : ''}`,
-            createdAt: new Date().toISOString(),
-            $type: 'app.bsky.feed.post',
-          },
+      // Create a new organization using the SDS organization creation endpoint
+      const response = await retryApiCall(async () => {
+        return auth.agent?.call('com.sds.organization.create', undefined, {
+          name: newOrgName.trim(),
+          description: newOrgDescription.trim() || undefined,
         })
       })
 
+      if (!response?.data) {
+        throw new Error('No response data from organization creation')
+      }
+
+      const orgData = response.data
+
       // Add the new organization to the local state
       const newOrg: Repository = {
-        did: session.did,
-        handle:
-          newOrgName.trim().toLowerCase().replace(/\s+/g, '-') + '.sds.local',
-        accessType: 'owner',
-        permissions: { read: true, write: true },
+        did: orgData.did,
+        handle: orgData.handle,
+        accessType: orgData.accessType,
+        permissions: orgData.permissions,
         collaboratorCount: 1,
       }
 
@@ -58,7 +90,15 @@ export function RepositoryDashboard() {
       setNewOrgDescription('')
       setShowCreateOrg(false)
 
-      alert(`Organization "${newOrgName}" created successfully!`)
+      // Invalidate the organizations query to refetch
+      await queryClient.invalidateQueries({
+        queryKey: ['sds', 'organizations'],
+      })
+
+      alert(`Organization "${orgData.name}" created successfully!
+
+Repository: ${orgData.handle}
+You are the owner with full admin privileges and can now invite collaborators.`)
     } catch (error: any) {
       console.error('Error creating organization:', error)
 
@@ -273,10 +313,10 @@ export function RepositoryDashboard() {
         <div className="rounded-lg bg-gray-50 p-4">
           <h4 className="mb-3 font-medium text-gray-900">
             Create Content in{' '}
-            {mockRepositories.find((r) => r.did === selectedRepo)?.handle}
+            {repositories.find((r) => r.did === selectedRepo)?.handle}
           </h4>
 
-          {mockRepositories.find((r) => r.did === selectedRepo)?.permissions
+          {repositories.find((r) => r.did === selectedRepo)?.permissions
             .write ? (
             <div className="space-y-3">
               <textarea
