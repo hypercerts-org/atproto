@@ -109,6 +109,7 @@ export const formatSeqAccountEvt = async (
   }
 }
 
+// TODO we should resolve this regression in typings, we now cast to any because of some recursive build error
 export const commitEvtOp = z.object({
   action: z.union([
     z.literal('create'),
@@ -116,8 +117,8 @@ export const commitEvtOp = z.object({
     z.literal('delete'),
   ]),
   path: z.string(),
-  cid: schema.cid.nullable(),
-  prev: schema.cid.optional(),
+  cid: z.any().nullable(),
+  prev: z.any().optional(),
 })
 export type CommitEvtOp = z.infer<typeof commitEvtOp>
 
@@ -125,19 +126,19 @@ export const commitEvt = z.object({
   rebase: z.boolean(),
   tooBig: z.boolean(),
   repo: z.string(),
-  commit: schema.cid,
+  commit: z.any(),
   rev: z.string(),
   since: z.string().nullable(),
-  blocks: schema.bytes,
+  blocks: z.any(),
   ops: z.array(commitEvtOp),
-  blobs: z.array(schema.cid),
-  prevData: schema.cid.optional(),
+  blobs: z.array(z.any()),
+  prevData: z.any().optional(),
 })
 export type CommitEvt = z.infer<typeof commitEvt>
 
 export const syncEvt = z.object({
   did: z.string(),
-  blocks: schema.bytes,
+  blocks: z.any(),
   rev: z.string(),
 })
 export type SyncEvt = z.infer<typeof syncEvt>

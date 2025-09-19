@@ -13788,6 +13788,337 @@ export const schemaDict = {
       },
     },
   },
+  ComSdsRepoGetPermissions: {
+    lexicon: 1,
+    id: 'com.sds.repo.getPermissions',
+    defs: {
+      main: {
+        type: 'query',
+        description:
+          "Get the current user's permissions for a repository. Requires auth.",
+        parameters: {
+          type: 'params',
+          required: ['repo'],
+          properties: {
+            repo: {
+              type: 'string',
+              format: 'at-identifier',
+              description:
+                'The handle or DID of the repository to check permissions for.',
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['permissions', 'accessType'],
+            properties: {
+              permissions: {
+                type: 'ref',
+                ref: 'lex:com.sds.repo.grantAccess#permissions',
+                description:
+                  "The user's current permissions for this repository.",
+              },
+              accessType: {
+                type: 'string',
+                knownValues: ['owner', 'shared', 'none'],
+                description:
+                  'The type of access the user has to this repository.',
+              },
+              grantedBy: {
+                type: 'string',
+                format: 'did',
+                description:
+                  'The DID of the user who granted these permissions (if shared access).',
+              },
+              grantedAt: {
+                type: 'string',
+                format: 'datetime',
+                description:
+                  'Timestamp when the permissions were granted (if shared access).',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'RepositoryNotFound',
+            description: 'The specified repository could not be found.',
+          },
+        ],
+      },
+    },
+  },
+  ComSdsRepoGrantAccess: {
+    lexicon: 1,
+    id: 'com.sds.repo.grantAccess',
+    defs: {
+      main: {
+        type: 'procedure',
+        description:
+          'Grant access permissions to a user for a shared repository. Requires auth and repository ownership or admin privileges.',
+        input: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['repo', 'userDid', 'permissions'],
+            properties: {
+              repo: {
+                type: 'string',
+                format: 'at-identifier',
+                description:
+                  'The handle or DID of the repository to grant access to.',
+              },
+              userDid: {
+                type: 'string',
+                format: 'did',
+                description: 'The DID of the user to grant access to.',
+              },
+              permissions: {
+                type: 'ref',
+                ref: 'lex:com.sds.repo.grantAccess#permissions',
+                description: 'The permissions to grant to the user.',
+              },
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['success', 'grantedAt'],
+            properties: {
+              success: {
+                type: 'boolean',
+                description: 'Whether the access was successfully granted.',
+              },
+              grantedAt: {
+                type: 'string',
+                format: 'datetime',
+                description: 'Timestamp when the access was granted.',
+              },
+              collaborator: {
+                type: 'ref',
+                ref: 'lex:com.sds.repo.grantAccess#collaboratorInfo',
+                description: 'Information about the newly added collaborator.',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'RepositoryNotFound',
+            description: 'The specified repository could not be found.',
+          },
+          {
+            name: 'UserNotFound',
+            description: 'The specified user could not be found.',
+          },
+          {
+            name: 'InsufficientPermissions',
+            description:
+              'The authenticated user does not have permission to grant access to this repository.',
+          },
+          {
+            name: 'InvalidPermissions',
+            description: 'The specified permissions are invalid or malformed.',
+          },
+        ],
+      },
+      permissions: {
+        type: 'object',
+        description: 'Repository access permissions',
+        required: ['read', 'write'],
+        properties: {
+          read: {
+            type: 'boolean',
+            description: 'Permission to read repository content.',
+          },
+          write: {
+            type: 'boolean',
+            description: 'Permission to write/modify repository content.',
+          },
+          admin: {
+            type: 'boolean',
+            description:
+              'Administrative permissions (manage collaborators, etc.).',
+          },
+        },
+      },
+      collaboratorInfo: {
+        type: 'object',
+        description: 'Information about a repository collaborator',
+        required: ['userDid', 'permissions', 'grantedBy', 'grantedAt'],
+        properties: {
+          userDid: {
+            type: 'string',
+            format: 'did',
+            description: 'The DID of the collaborator.',
+          },
+          permissions: {
+            type: 'ref',
+            ref: 'lex:com.sds.repo.grantAccess#permissions',
+            description: 'The permissions granted to this collaborator.',
+          },
+          grantedBy: {
+            type: 'string',
+            format: 'did',
+            description: 'The DID of the user who granted these permissions.',
+          },
+          grantedAt: {
+            type: 'string',
+            format: 'datetime',
+            description: 'Timestamp when the permissions were granted.',
+          },
+          revokedAt: {
+            type: 'string',
+            format: 'datetime',
+            description:
+              'Timestamp when the permissions were revoked (if applicable).',
+          },
+        },
+      },
+    },
+  },
+  ComSdsRepoListCollaborators: {
+    lexicon: 1,
+    id: 'com.sds.repo.listCollaborators',
+    defs: {
+      main: {
+        type: 'query',
+        description:
+          'List all collaborators who have access to a shared repository. Requires auth and repository access.',
+        parameters: {
+          type: 'params',
+          required: ['repo'],
+          properties: {
+            repo: {
+              type: 'string',
+              format: 'at-identifier',
+              description:
+                'The handle or DID of the repository to list collaborators for.',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 50,
+              description: 'Maximum number of collaborators to return.',
+            },
+            cursor: {
+              type: 'string',
+              description:
+                'Pagination cursor for retrieving additional results.',
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['collaborators'],
+            properties: {
+              collaborators: {
+                type: 'array',
+                items: {
+                  type: 'ref',
+                  ref: 'lex:com.sds.repo.grantAccess#collaboratorInfo',
+                },
+                description:
+                  'List of repository collaborators and their permissions.',
+              },
+              cursor: {
+                type: 'string',
+                description:
+                  'Pagination cursor for retrieving additional results.',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'RepositoryNotFound',
+            description: 'The specified repository could not be found.',
+          },
+          {
+            name: 'InsufficientPermissions',
+            description:
+              'The authenticated user does not have permission to view collaborators for this repository.',
+          },
+        ],
+      },
+    },
+  },
+  ComSdsRepoRevokeAccess: {
+    lexicon: 1,
+    id: 'com.sds.repo.revokeAccess',
+    defs: {
+      main: {
+        type: 'procedure',
+        description:
+          'Revoke access permissions from a user for a shared repository. Requires auth and repository ownership or admin privileges.',
+        input: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['repo', 'userDid'],
+            properties: {
+              repo: {
+                type: 'string',
+                format: 'at-identifier',
+                description:
+                  'The handle or DID of the repository to revoke access from.',
+              },
+              userDid: {
+                type: 'string',
+                format: 'did',
+                description: 'The DID of the user to revoke access from.',
+              },
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['success', 'revokedAt'],
+            properties: {
+              success: {
+                type: 'boolean',
+                description: 'Whether the access was successfully revoked.',
+              },
+              revokedAt: {
+                type: 'string',
+                format: 'datetime',
+                description: 'Timestamp when the access was revoked.',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'RepositoryNotFound',
+            description: 'The specified repository could not be found.',
+          },
+          {
+            name: 'UserNotFound',
+            description: 'The specified user could not be found.',
+          },
+          {
+            name: 'InsufficientPermissions',
+            description:
+              'The authenticated user does not have permission to revoke access from this repository.',
+          },
+          {
+            name: 'AccessNotFound',
+            description:
+              'The specified user does not have active access to this repository.',
+          },
+        ],
+      },
+    },
+  },
   ToolsOzoneCommunicationCreateTemplate: {
     lexicon: 1,
     id: 'tools.ozone.communication.createTemplate',
@@ -18659,6 +18990,10 @@ export const ids = {
     'com.atproto.temp.requestPhoneVerification',
   ComAtprotoTempRevokeAccountCredentials:
     'com.atproto.temp.revokeAccountCredentials',
+  ComSdsRepoGetPermissions: 'com.sds.repo.getPermissions',
+  ComSdsRepoGrantAccess: 'com.sds.repo.grantAccess',
+  ComSdsRepoListCollaborators: 'com.sds.repo.listCollaborators',
+  ComSdsRepoRevokeAccess: 'com.sds.repo.revokeAccess',
   ToolsOzoneCommunicationCreateTemplate:
     'tools.ozone.communication.createTemplate',
   ToolsOzoneCommunicationDefs: 'tools.ozone.communication.defs',

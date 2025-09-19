@@ -28,8 +28,10 @@ import { createServer } from './lexicon'
 import * as AppBskyFeedGetFeedSkeleton from './lexicon/types/app/bsky/feed/getFeedSkeleton'
 import { loggerMiddleware } from './logger'
 import { proxyHandler } from './pipethrough'
+import { SdsAppContext, createSdsContext } from './sds-context'
 import compression from './util/compression'
 import * as wellKnown from './well-known'
+// SDS-specific imports
 
 export { createSecretKeyObject } from './auth-verifier'
 export * from './config'
@@ -42,6 +44,13 @@ export { type CommitDataWithOps, type PreparedWrite } from './repo'
 export * as repoPrepare from './repo/prepare'
 export { scripts } from './scripts'
 export * as sequencer from './sequencer'
+
+// SDS-specific exports
+export { SdsAppContext } from './sds-context'
+export { SdsPermissionManager } from './permission-manager'
+export { SdsAuthVerifier } from './sds-auth-verifier'
+export * from './types'
+// SDS class is exported below after its definition
 
 // Legacy export for backwards compatibility
 export type SkeletonHandler = MethodHandler<
@@ -192,7 +201,147 @@ export class PDS {
   }
 }
 
-export default PDS
+// SDS Class Definition - Extends PDS with shared repository functionality
+export class SDS extends PDS {
+  public ctx: SdsAppContext
+
+  constructor(opts: { ctx: SdsAppContext; app: express.Application }) {
+    super(opts)
+    this.ctx = opts.ctx
+  }
+
+  static async create(
+    cfg: ServerConfig,
+    secrets: ServerSecrets,
+    overrides?: Partial<AppContextOptions>,
+  ): Promise<SDS> {
+    // Create base PDS context first
+    const baseCtx = await AppContext.fromConfig(cfg, secrets, overrides)
+
+    // Create SDS-specific context from base context
+    const sdsCtx = await createSdsContext(baseCtx)
+
+    // Create the XRPC server with PDS logic
+    const { rateLimits } = sdsCtx.cfg
+
+    const server = createServer({
+      validateResponse: false,
+      payload: {
+        jsonLimit: 150 * 1024, // 150kb
+        textLimit: 100 * 1024, // 100kb
+        blobLimit: cfg.service.blobUploadLimit,
+      },
+      catchall: proxyHandler(sdsCtx),
+      errorParser: (err) => {
+        if (err instanceof PlcClientError) {
+          const payloadMessage =
+            typeof err.data === 'object' &&
+            err.data != null &&
+            'message' in err.data &&
+            typeof err.data.message === 'string' &&
+            err.data.message
+
+          const type =
+            err.status >= 500
+              ? ResponseType.UpstreamFailure
+              : ResponseType.InvalidRequest
+
+          return new XRPCError(
+            type,
+            payloadMessage || 'Unable to perform PLC operation',
+          )
+        }
+
+        return XRPCError.fromError(err)
+      },
+      rateLimits: rateLimits.enabled
+        ? {
+            creator: sdsCtx.redisScratch
+              ? (opts) => new RedisRateLimiter(sdsCtx.redisScratch, opts)
+              : (opts) => new MemoryRateLimiter(opts),
+            bypass: ({ req }) => {
+              const { bypassKey, bypassIps } = rateLimits
+              if (
+                bypassKey &&
+                bypassKey === req.headers['x-ratelimit-bypass']
+              ) {
+                return true
+              }
+              if (bypassIps && bypassIps.includes(req.ip)) {
+                return true
+              }
+              return false
+            },
+            global: [
+              {
+                name: 'global-ip',
+                durationMs: 5 * MINUTE,
+                points: 3000,
+              },
+            ],
+            shared: [
+              {
+                name: 'repo-write-hour',
+                durationMs: HOUR,
+                points: 5000, // creates=3, puts=2, deletes=1
+              },
+              {
+                name: 'repo-write-day',
+                durationMs: DAY,
+                points: 35000, // creates=3, puts=2, deletes=1
+              },
+            ],
+          }
+        : undefined,
+    })
+
+    apiRoutes(server, sdsCtx)
+
+    const app = express()
+    app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal'])
+    app.use(loggerMiddleware)
+    app.use(compression())
+    app.use(authRoutes.createRouter(sdsCtx))
+    app.use(cors({ maxAge: DAY / SECOND }))
+    app.use(basicRoutes.createRouter(sdsCtx))
+    app.use(wellKnown.createRouter(sdsCtx))
+    app.use(server.xrpc.router)
+    app.use(error.handler)
+
+    return new SDS({
+      ctx: sdsCtx,
+      app,
+    })
+  }
+
+  /**
+   * Enhanced start method that includes SDS-specific initialization
+   */
+  async start() {
+    // Initialize SDS permission system
+    console.log('🚀 Starting SDS (Shared Data Server)...')
+    console.log('✅ Multi-user repository support enabled')
+    console.log('✅ Permission management system active')
+
+    return await super.start()
+  }
+
+  /**
+   * Enhanced destroy method with SDS-specific cleanup
+   */
+  async destroy() {
+    console.log('🔄 Shutting down SDS...')
+
+    // SDS-specific cleanup would go here if needed
+    // For now, the base PDS cleanup handles everything
+
+    await super.destroy()
+    console.log('✅ SDS shutdown complete')
+  }
+}
+
+// Export SDS as the default export
+export default SDS
 
 const getTrustedIps = (cfg: ServerConfig) => {
   if (!cfg.rateLimits.enabled) return []

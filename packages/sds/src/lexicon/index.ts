@@ -201,6 +201,10 @@ import * as ComAtprotoTempCheckSignupQueue from './types/com/atproto/temp/checkS
 import * as ComAtprotoTempFetchLabels from './types/com/atproto/temp/fetchLabels.js'
 import * as ComAtprotoTempRequestPhoneVerification from './types/com/atproto/temp/requestPhoneVerification.js'
 import * as ComAtprotoTempRevokeAccountCredentials from './types/com/atproto/temp/revokeAccountCredentials.js'
+import * as ComSdsRepoGetPermissions from './types/com/sds/repo/getPermissions.js'
+import * as ComSdsRepoGrantAccess from './types/com/sds/repo/grantAccess.js'
+import * as ComSdsRepoListCollaborators from './types/com/sds/repo/listCollaborators.js'
+import * as ComSdsRepoRevokeAccess from './types/com/sds/repo/revokeAccess.js'
 import * as ToolsOzoneCommunicationCreateTemplate from './types/tools/ozone/communication/createTemplate.js'
 import * as ToolsOzoneCommunicationDeleteTemplate from './types/tools/ozone/communication/deleteTemplate.js'
 import * as ToolsOzoneCommunicationListTemplates from './types/tools/ozone/communication/listTemplates.js'
@@ -1838,10 +1842,12 @@ export class ChatBskyModerationNS {
 export class ComNS {
   _server: Server
   atproto: ComAtprotoNS
+  sds: ComSdsNS
 
   constructor(server: Server) {
     this._server = server
     this.atproto = new ComAtprotoNS(server)
+    this.sds = new ComSdsNS(server)
   }
 }
 
@@ -2945,6 +2951,72 @@ export class ComAtprotoTempNS {
     >,
   ) {
     const nsid = 'com.atproto.temp.revokeAccountCredentials' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+}
+
+export class ComSdsNS {
+  _server: Server
+  repo: ComSdsRepoNS
+
+  constructor(server: Server) {
+    this._server = server
+    this.repo = new ComSdsRepoNS(server)
+  }
+}
+
+export class ComSdsRepoNS {
+  _server: Server
+
+  constructor(server: Server) {
+    this._server = server
+  }
+
+  getPermissions<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsRepoGetPermissions.QueryParams,
+      ComSdsRepoGetPermissions.HandlerInput,
+      ComSdsRepoGetPermissions.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.repo.getPermissions' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+
+  grantAccess<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsRepoGrantAccess.QueryParams,
+      ComSdsRepoGrantAccess.HandlerInput,
+      ComSdsRepoGrantAccess.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.repo.grantAccess' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+
+  listCollaborators<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsRepoListCollaborators.QueryParams,
+      ComSdsRepoListCollaborators.HandlerInput,
+      ComSdsRepoListCollaborators.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.repo.listCollaborators' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+
+  revokeAccess<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsRepoRevokeAccess.QueryParams,
+      ComSdsRepoRevokeAccess.HandlerInput,
+      ComSdsRepoRevokeAccess.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.repo.revokeAccess' // @ts-ignore
     return this._server.xrpc.method(nsid, cfg)
   }
 }

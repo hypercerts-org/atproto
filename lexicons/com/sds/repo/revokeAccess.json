@@ -1,0 +1,65 @@
+{
+  "lexicon": 1,
+  "id": "com.sds.repo.revokeAccess",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Revoke access permissions from a user for a shared repository. Requires auth and repository ownership or admin privileges.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repo", "userDid"],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "format": "at-identifier",
+              "description": "The handle or DID of the repository to revoke access from."
+            },
+            "userDid": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the user to revoke access from."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success", "revokedAt"],
+          "properties": {
+            "success": {
+              "type": "boolean",
+              "description": "Whether the access was successfully revoked."
+            },
+            "revokedAt": {
+              "type": "string",
+              "format": "datetime",
+              "description": "Timestamp when the access was revoked."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RepositoryNotFound",
+          "description": "The specified repository could not be found."
+        },
+        {
+          "name": "UserNotFound",
+          "description": "The specified user could not be found."
+        },
+        {
+          "name": "InsufficientPermissions",
+          "description": "The authenticated user does not have permission to revoke access from this repository."
+        },
+        {
+          "name": "AccessNotFound",
+          "description": "The specified user does not have active access to this repository."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "lexicon": 1,
+  "id": "com.sds.repo.listCollaborators",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List all collaborators who have access to a shared repository. Requires auth and repository access.",
+      "parameters": {
+        "type": "params",
+        "required": ["repo"],
+        "properties": {
+          "repo": {
+            "type": "string",
+            "format": "at-identifier",
+            "description": "The handle or DID of the repository to list collaborators for."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of collaborators to return."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor for retrieving additional results."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["collaborators"],
+          "properties": {
+            "collaborators": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "com.sds.repo.grantAccess#collaboratorInfo"
+              },
+              "description": "List of repository collaborators and their permissions."
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Pagination cursor for retrieving additional results."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RepositoryNotFound",
+          "description": "The specified repository could not be found."
+        },
+        {
+          "name": "InsufficientPermissions",
+          "description": "The authenticated user does not have permission to view collaborators for this repository."
+        }
+      ]
+    }
+  }
+}

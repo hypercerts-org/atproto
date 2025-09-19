@@ -35,7 +35,7 @@ export class SdsAuthVerifier extends AuthVerifier {
     repoDid: string,
     userDid: string,
     action: keyof RepositoryPermissions,
-    context?: PermissionCheckContext,
+    _context?: PermissionCheckContext,
   ): Promise<boolean> {
     try {
       return await this.permissionManager.checkAccess(repoDid, userDid, action)
@@ -54,10 +54,10 @@ export class SdsAuthVerifier extends AuthVerifier {
     repo: string,
     userDid: string,
     action: keyof RepositoryPermissions,
-    options?: {
+    options: {
       checkTakedown?: boolean
       checkDeactivated?: boolean
-    },
+    } = {},
   ) {
     // First, try to find the account normally (this handles DIDs and handles)
     const account = await this.findAccount(repo, options)

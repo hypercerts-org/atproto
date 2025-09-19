@@ -1,0 +1,56 @@
+{
+  "lexicon": 1,
+  "id": "com.sds.repo.getPermissions",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the current user's permissions for a repository. Requires auth.",
+      "parameters": {
+        "type": "params",
+        "required": ["repo"],
+        "properties": {
+          "repo": {
+            "type": "string",
+            "format": "at-identifier",
+            "description": "The handle or DID of the repository to check permissions for."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["permissions", "accessType"],
+          "properties": {
+            "permissions": {
+              "type": "ref",
+              "ref": "com.sds.repo.grantAccess#permissions",
+              "description": "The user's current permissions for this repository."
+            },
+            "accessType": {
+              "type": "string",
+              "knownValues": ["owner", "shared", "none"],
+              "description": "The type of access the user has to this repository."
+            },
+            "grantedBy": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the user who granted these permissions (if shared access)."
+            },
+            "grantedAt": {
+              "type": "string",
+              "format": "datetime",
+              "description": "Timestamp when the permissions were granted (if shared access)."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RepositoryNotFound",
+          "description": "The specified repository could not be found."
+        }
+      ]
+    }
+  }
+}

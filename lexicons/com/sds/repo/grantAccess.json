@@ -1,0 +1,126 @@
+{
+  "lexicon": 1,
+  "id": "com.sds.repo.grantAccess",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Grant access permissions to a user for a shared repository. Requires auth and repository ownership or admin privileges.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repo", "userDid", "permissions"],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "format": "at-identifier",
+              "description": "The handle or DID of the repository to grant access to."
+            },
+            "userDid": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the user to grant access to."
+            },
+            "permissions": {
+              "type": "ref",
+              "ref": "#permissions",
+              "description": "The permissions to grant to the user."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success", "grantedAt"],
+          "properties": {
+            "success": {
+              "type": "boolean",
+              "description": "Whether the access was successfully granted."
+            },
+            "grantedAt": {
+              "type": "string",
+              "format": "datetime",
+              "description": "Timestamp when the access was granted."
+            },
+            "collaborator": {
+              "type": "ref",
+              "ref": "#collaboratorInfo",
+              "description": "Information about the newly added collaborator."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "RepositoryNotFound",
+          "description": "The specified repository could not be found."
+        },
+        {
+          "name": "UserNotFound",
+          "description": "The specified user could not be found."
+        },
+        {
+          "name": "InsufficientPermissions",
+          "description": "The authenticated user does not have permission to grant access to this repository."
+        },
+        {
+          "name": "InvalidPermissions",
+          "description": "The specified permissions are invalid or malformed."
+        }
+      ]
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Repository access permissions",
+      "required": ["read", "write"],
+      "properties": {
+        "read": {
+          "type": "boolean",
+          "description": "Permission to read repository content."
+        },
+        "write": {
+          "type": "boolean",
+          "description": "Permission to write/modify repository content."
+        },
+        "admin": {
+          "type": "boolean",
+          "description": "Administrative permissions (manage collaborators, etc.)."
+        }
+      }
+    },
+    "collaboratorInfo": {
+      "type": "object",
+      "description": "Information about a repository collaborator",
+      "required": ["userDid", "permissions", "grantedBy", "grantedAt"],
+      "properties": {
+        "userDid": {
+          "type": "string",
+          "format": "did",
+          "description": "The DID of the collaborator."
+        },
+        "permissions": {
+          "type": "ref",
+          "ref": "#permissions",
+          "description": "The permissions granted to this collaborator."
+        },
+        "grantedBy": {
+          "type": "string",
+          "format": "did",
+          "description": "The DID of the user who granted these permissions."
+        },
+        "grantedAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Timestamp when the permissions were granted."
+        },
+        "revokedAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Timestamp when the permissions were revoked (if applicable)."
+        }
+      }
+    }
+  }
+}

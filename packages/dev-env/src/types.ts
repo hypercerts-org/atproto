@@ -18,11 +18,9 @@ export type PdsConfig = Partial<pds.ServerEnvironment> & {
   migration?: string
 }
 
-export type SdsConfig = {
-  port?: number
-  maxCollaborators?: number
-  rotationKeyPath?: string
-  pdsUrl?: string
+export type SdsConfig = Partial<pds.ServerEnvironment> & {
+  didPlcUrl: string
+  migration?: string
 }
 
 export type BskyConfig = Partial<bsky.ServerConfig> & {

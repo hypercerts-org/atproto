@@ -41,8 +41,7 @@ const run = async () => {
   // Start SDS server for organization management
   const sds = await TestSds.create({
     port: 2585,
-    maxCollaborators: 10,
-    pdsUrl: `http://localhost:${network.pds.port}`,
+    didPlcUrl: network.plc.url,
   })
 
   if (network.introspect) {
