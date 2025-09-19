@@ -28,6 +28,82 @@ const LEXICONS: readonly LexiconDoc[] = [
   },
   {
     lexicon: 1,
+    id: 'com.sds.repo.grantAccess',
+    defs: {
+      main: {
+        type: 'permission-set',
+        title: 'SDS Repository Access Management',
+        detail: 'Grant access to shared repositories',
+        permissions: [
+          {
+            type: 'permission',
+            resource: 'rpc',
+            inheritAud: true,
+            lxm: ['com.sds.repo.grantAccess'],
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
+    id: 'com.sds.repo.revokeAccess',
+    defs: {
+      main: {
+        type: 'permission-set',
+        title: 'SDS Repository Access Revocation',
+        detail: 'Revoke access to shared repositories',
+        permissions: [
+          {
+            type: 'permission',
+            resource: 'rpc',
+            inheritAud: true,
+            lxm: ['com.sds.repo.revokeAccess'],
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
+    id: 'com.sds.repo.listCollaborators',
+    defs: {
+      main: {
+        type: 'permission-set',
+        title: 'SDS Repository Collaboration Listing',
+        detail: 'List collaborators of shared repositories',
+        permissions: [
+          {
+            type: 'permission',
+            resource: 'rpc',
+            inheritAud: true,
+            lxm: ['com.sds.repo.listCollaborators'],
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
+    id: 'com.sds.repo.getPermissions',
+    defs: {
+      main: {
+        type: 'permission-set',
+        title: 'SDS Repository Permission Inquiry',
+        detail: 'Check permissions on shared repositories',
+        permissions: [
+          {
+            type: 'permission',
+            resource: 'rpc',
+            inheritAud: true,
+            lxm: ['com.sds.repo.getPermissions'],
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
     id: 'com.example.calendar.basePermissions',
     defs: {
       main: {

@@ -1,0 +1,62 @@
+{
+  "name": "@atproto/sds-demo",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "SDS (Shared Data Server) demonstration application showcasing collaborative repository features",
+  "keywords": [
+    "sds",
+    "shared",
+    "collaboration",
+    "atproto",
+    "demo",
+    "browser"
+  ],
+  "homepage": "https://atproto.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bluesky-social/atproto",
+    "directory": "packages/sds-demo"
+  },
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "default": "./dist/files.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@tanstack/react-query": "^5.71.10"
+  },
+  "devDependencies": {
+    "@atproto-labs/rollup-plugin-bundle-manifest": "workspace:*",
+    "@atproto/api": "workspace:*",
+    "@atproto/oauth-client": "workspace:*",
+    "@atproto/oauth-client-browser": "workspace:*",
+    "@atproto/oauth-types": "workspace:*",
+    "@atproto/xrpc": "workspace:*",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-html": "^1.0.4",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-swc": "^0.4.0",
+    "@swc/helpers": "^0.5.15",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-json-view": "^1.21.3",
+    "rollup": "^4.13.0",
+    "rollup-plugin-postcss": "^4.0.2",
+    "rollup-plugin-serve": "^1.1.1",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.6.3"
+  },
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "dev": "rollup --config rollup.config.js --watch"
+  }
+}
