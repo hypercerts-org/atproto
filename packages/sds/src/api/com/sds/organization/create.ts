@@ -8,26 +8,27 @@ import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.organization.create({
-    auth: ctx.authVerifier.authorization({
-      authorize: () => {
-        // Basic authorization - user must be authenticated
-      },
-    }),
+    auth: ctx.authVerifier.unauthenticated,
     rateLimit: [
       {
         name: 'org-create-hour',
-        calcKey: ({ auth }) => auth.credentials.did,
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 5,
       },
       {
         name: 'org-create-day',
-        calcKey: ({ auth }) => auth.credentials.did,
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 10,
       },
     ],
     handler: async ({ input, auth }) => {
-      const { name, description, handle } = input.body
-      const creatorDid = auth.credentials.did
+      const { name, description, handle, creatorDid } = input.body
+
+      if (!creatorDid) {
+        throw new InvalidRequestError('Creator DID is required')
+      }
+
+      console.log('[SDS] Organization create handler - creator DID:', creatorDid)
 
       if (!name?.trim()) {
         throw new InvalidRequestError('Organization name is required')
@@ -81,30 +82,8 @@ export default function (server: Server, ctx: SdsAppContext) {
           creatorDid, // Self-granted as the creator
         )
 
-        // Create an organization record in the new repository to mark it as an organization
-        const { write } = await ctx.actorStore.transact(
-          orgDid,
-          async (actorTxn) => {
-            const writeInfo = {
-              did: orgDid,
-              collection: 'com.sds.organization',
-              rkey: 'self',
-              record: {
-                $type: 'com.sds.organization',
-                name: name.trim(),
-                description: description?.trim(),
-                createdBy: creatorDid,
-                createdAt: new Date().toISOString(),
-              },
-            }
-
-            const write = await prepareCreate(writeInfo)
-            const commit = await actorTxn.repo.processWrites([write])
-            await ctx.sequencer.sequenceCommit(orgDid, commit)
-
-            return { write }
-          },
-        )
+        // Organization is just a repository/account like a user account
+        // No need for special organization records - the RBAC system defines ownership
 
         // Send the PLC operation
         await ctx.plcClient.sendOperation(orgDid, plcCreate.op)

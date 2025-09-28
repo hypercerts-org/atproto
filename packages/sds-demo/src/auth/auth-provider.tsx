@@ -2,13 +2,13 @@
 
 import { ReactNode, createContext, useContext, useMemo } from 'react'
 import { OAuthSession } from '@atproto/oauth-client'
-import { SdsAgent } from '../lib/sds-agent.ts'
+import { Agent } from '@atproto/api'
 import { OAuthSignIn, UseOAuthOptions, useOAuth } from './use-oauth.ts'
 
 export type AuthContextValueSignedIn = {
   signedIn: true
   session: OAuthSession
-  agent: SdsAgent
+  agent: Agent
   signIn?: OAuthSignIn
   signUpUrl?: undefined
   signOut: () => void
@@ -53,7 +53,7 @@ export const AuthProvider = ({
     return {
       signedIn: true,
       session,
-      agent: new SdsAgent(session),
+      agent: new Agent(session),
       signOut: () => session.signOut(),
       refresh: () => session.getTokenInfo(true),
     }

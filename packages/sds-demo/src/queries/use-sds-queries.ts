@@ -156,21 +156,32 @@ export function useListOrganizationsQuery() {
   return useQuery({
     queryKey: ['sds', 'organizations'],
     queryFn: async (): Promise<any[]> => {
-      if (!auth.signedIn || !auth.agent) throw new Error('No agent available')
+      if (!auth.signedIn || !auth.session?.did) throw new Error('No authenticated user')
 
       try {
-        const response = await auth.agent.call('com.atproto.repo.listRecords', {
-          repo: auth.session.did,
-          collection: 'com.sds.organization',
+        // Use direct fetch since Agent lexicon validation might not work yet
+        const response = await fetch(`http://localhost:2585/xrpc/com.sds.organization.list?userDid=${encodeURIComponent(auth.session.did)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         })
-        return response.data.records || []
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
+
+        const data = await response.json()
+        console.log('[SDS Demo] Fetched organizations:', data)
+        return data.organizations || []
       } catch (error) {
         console.error('Error fetching organizations:', error)
         // Return empty array for graceful fallback
         return []
       }
     },
-    enabled: auth.signedIn && !!auth.agent,
+    enabled: auth.signedIn && !!auth.session?.did,
   })
 }
 

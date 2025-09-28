@@ -1,6 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { Agent } from '@atproto/api'
 import { useAuthContext } from '../auth/auth-provider.tsx'
+import { SDS_SERVER_URL } from '../constants.ts'
+import { addSdsLexicons } from '../lib/sds-lexicons.ts'
 import {
   Repository,
   useRepositoryContext,
@@ -32,12 +35,14 @@ export function RepositoryDashboard() {
   useEffect(() => {
     if (organizationsQuery.data && organizationsQuery.data.length > 0) {
       const existingOrgs: Repository[] = organizationsQuery.data.map(
-        (record: any) => ({
-          did: session?.did || '',
-          handle:
-            record.value.name.toLowerCase().replace(/\s+/g, '-') + '.sds.local',
-          accessType: 'owner' as const,
-          permissions: { read: true, write: true },
+        (org: any) => ({
+          did: org.did,
+          handle: org.handle,
+          accessType: org.accessType,
+          permissions: {
+            read: org.permissions.read,
+            write: org.permissions.write
+          },
           collaboratorCount: 1,
         }),
       )
@@ -61,12 +66,37 @@ export function RepositoryDashboard() {
 
     setLoading(true)
     try {
-      // Create a new organization using the SDS organization creation endpoint
+      // Create a new shared repository on the SDS server
+      // Use direct fetch call since Agent lexicon validation is causing issues
       const response = await retryApiCall(async () => {
-        return auth.agent?.call('com.sds.organization.create', undefined, {
+        console.log('[SDS Demo] Creating organization for user:', session.did)
+
+        const requestPayload = {
           name: newOrgName.trim(),
           description: newOrgDescription.trim() || undefined,
+          creatorDid: session.did,
+        }
+
+        console.log('[SDS Demo] Making organization creation request...')
+        console.log('[SDS Demo] Request payload:', requestPayload)
+
+        const rawResponse = await fetch(`${SDS_SERVER_URL}/xrpc/com.sds.organization.create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestPayload),
         })
+
+        if (!rawResponse.ok) {
+          const errorText = await rawResponse.text()
+          throw new Error(`HTTP ${rawResponse.status}: ${errorText}`)
+        }
+
+        const responseData = await rawResponse.json()
+        console.log('[SDS Demo] Organization created successfully:', responseData)
+
+        return { data: responseData }
       })
 
       if (!response?.data) {
@@ -79,26 +109,21 @@ export function RepositoryDashboard() {
       const newOrg: Repository = {
         did: orgData.did,
         handle: orgData.handle,
-        accessType: orgData.accessType,
-        permissions: orgData.permissions,
+        accessType: orgData.accessType || 'owner',
+        permissions: orgData.permissions || { read: true, write: true },
         collaboratorCount: 1,
       }
 
       addRepository(newOrg)
-      setSelectedRepo(newOrg.did) // Auto-select the new organization
+      setSelectedRepo(newOrg.did)
       setNewOrgName('')
       setNewOrgDescription('')
       setShowCreateOrg(false)
 
-      // Invalidate the organizations query to refetch
-      await queryClient.invalidateQueries({
-        queryKey: ['sds', 'organizations'],
-      })
+      alert(`Repository "${orgData.name}" created successfully!
 
-      alert(`Organization "${orgData.name}" created successfully!
-
-Repository: ${orgData.handle}
-You are the owner with full admin privileges and can now invite collaborators.`)
+Handle: ${orgData.handle}
+You are the owner and can now invite collaborators to share this repository.`)
     } catch (error: any) {
       console.error('Error creating organization:', error)
 
@@ -113,7 +138,7 @@ You are the owner with full admin privileges and can now invite collaborators.`)
         )
       } else {
         alert(
-          `Failed to create organization: ${error?.message || 'Unknown error'}. Please try again.`,
+          `Failed to create repository: ${error?.message || 'Unknown error'}. Please try again.`,
         )
       }
     } finally {
@@ -151,37 +176,40 @@ You are the owner with full admin privileges and can now invite collaborators.`)
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Your Organizations</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Your Shared Repositories</h2>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-500">
-            {repositories.length} organizations
+            {repositories.length} repositories
           </div>
           <Button
             onClick={() => setShowCreateOrg(true)}
             size="small"
             disabled={loading}
           >
-            Create Organization
+            Create Repository
           </Button>
         </div>
       </div>
 
-      {/* Create Organization Modal */}
+      {/* Create Shared Repository Modal */}
       {showCreateOrg && (
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-4">
           <h3 className="mb-4 text-lg font-medium text-gray-900">
-            Create New Organization
+            Create Shared Repository
           </h3>
+          <p className="mb-4 text-sm text-gray-600">
+            Create a new repository on the SDS that you own and can share with collaborators.
+          </p>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Organization Name *
+                Repository Name *
               </label>
               <input
                 type="text"
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
-                placeholder="Enter organization name"
+                placeholder="Enter repository name"
                 className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -192,7 +220,7 @@ You are the owner with full admin privileges and can now invite collaborators.`)
               <textarea
                 value={newOrgDescription}
                 onChange={(e) => setNewOrgDescription(e.target.value)}
-                placeholder="Describe your organization"
+                placeholder="Describe your repository"
                 rows={3}
                 className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-blue-500 focus:outline-none"
               />
@@ -203,7 +231,7 @@ You are the owner with full admin privileges and can now invite collaborators.`)
                 disabled={!newOrgName.trim() || loading}
                 size="small"
               >
-                {loading ? <Spinner /> : 'Create'}
+                {loading ? <Spinner /> : 'Create Repository'}
               </Button>
               <Button
                 onClick={() => {
@@ -235,13 +263,13 @@ You are the owner with full admin privileges and can now invite collaborators.`)
             </svg>
           </div>
           <h3 className="mb-2 text-lg font-medium text-gray-900">
-            No organizations yet
+            No shared repositories yet
           </h3>
           <p className="mb-4 text-gray-500">
-            Create your first organization to start collaborating with others.
+            Create your first shared repository to start collaborating with others.
           </p>
           <Button onClick={() => setShowCreateOrg(true)}>
-            Create Your First Organization
+            Create Your First Repository
           </Button>
         </div>
       )}

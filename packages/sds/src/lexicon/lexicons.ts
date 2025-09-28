@@ -13800,7 +13800,7 @@ export const schemaDict = {
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['name'],
+            required: ['name', 'creatorDid'],
             properties: {
               name: {
                 type: 'string',
@@ -13817,6 +13817,11 @@ export const schemaDict = {
                 format: 'handle',
                 description:
                   'Optional custom handle for the organization. If not provided, will be auto-generated.',
+              },
+              creatorDid: {
+                type: 'string',
+                format: 'did',
+                description: 'DID of the user creating the organization.',
               },
             },
           },
@@ -13881,6 +13886,83 @@ export const schemaDict = {
             description: 'The specified handle is already taken.',
           },
         ],
+      },
+    },
+  },
+  ComSdsOrganizationList: {
+    lexicon: 1,
+    id: 'com.sds.organization.list',
+    defs: {
+      main: {
+        type: 'query',
+        description:
+          'List organizations that the authenticated user has access to.',
+        parameters: {
+          type: 'params',
+          properties: {
+            userDid: {
+              type: 'string',
+              format: 'did',
+              description: 'DID of the user to list organizations for.',
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['organizations'],
+            properties: {
+              organizations: {
+                type: 'array',
+                items: {
+                  type: 'ref',
+                  ref: 'lex:com.sds.organization.list#organization',
+                },
+              },
+            },
+          },
+        },
+      },
+      organization: {
+        type: 'object',
+        description: "Organization information with user's access details",
+        required: ['did', 'handle', 'name', 'permissions', 'accessType'],
+        properties: {
+          did: {
+            type: 'string',
+            format: 'did',
+            description: 'The DID of the organization repository.',
+          },
+          handle: {
+            type: 'string',
+            format: 'handle',
+            description: 'The handle of the organization.',
+          },
+          name: {
+            type: 'string',
+            description: 'The name of the organization.',
+          },
+          description: {
+            type: 'string',
+            description: 'The description of the organization.',
+          },
+          createdAt: {
+            type: 'string',
+            format: 'datetime',
+            description: 'When the organization was created.',
+          },
+          permissions: {
+            type: 'ref',
+            ref: 'lex:com.sds.repo.grantAccess#permissions',
+            description: "The user's permissions for this organization.",
+          },
+          accessType: {
+            type: 'string',
+            knownValues: ['owner', 'collaborator'],
+            description: "The user's access type.",
+          },
+        },
       },
     },
   },
@@ -19087,6 +19169,7 @@ export const ids = {
   ComAtprotoTempRevokeAccountCredentials:
     'com.atproto.temp.revokeAccountCredentials',
   ComSdsOrganizationCreate: 'com.sds.organization.create',
+  ComSdsOrganizationList: 'com.sds.organization.list',
   ComSdsRepoGetPermissions: 'com.sds.repo.getPermissions',
   ComSdsRepoGrantAccess: 'com.sds.repo.grantAccess',
   ComSdsRepoListCollaborators: 'com.sds.repo.listCollaborators',

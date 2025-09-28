@@ -123,6 +123,14 @@ export class TestNetworkWithSds extends TestNetworkNoAppView {
     await lexiconAuthorityProfile.migrateTo(pds)
     await lexiconAuthorityProfile.createRecords()
 
+    // Also migrate lexicon authority profile to SDS server
+    // This ensures the SDS server can resolve OAuth scopes locally
+    await lexiconAuthorityProfile.migrateTo(sds)
+    await lexiconAuthorityProfile.createRecords()
+
+    console.log(`Lexicon authority ${lexiconAuthorityProfile.did} migrated to both PDS and SDS servers`)
+    console.log(`PDS URL: ${pds.url}, SDS URL: ${sds.url}`)
+
     await ozone.addAdminDid(ozoneServiceProfile.did)
 
     mockNetworkUtilities(pds, bsky)

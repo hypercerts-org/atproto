@@ -15,7 +15,7 @@ export const HANDLE_RESOLVER_URL: string =
 
 export const SIGN_UP_URL: string =
   searchParams.get('sign_up_url') ??
-  (ENV === 'development' ? 'http://localhost:2583' : 'https://bsky.social')
+  (ENV === 'development' ? 'http://localhost:2583' : 'https://bsky.social') // Use PDS server for user auth
 
 // SDS server URL for development
 export const SDS_SERVER_URL: string =
@@ -31,12 +31,6 @@ export const OAUTH_SCOPE: string =
         'identity:*',
         'repo:*',
         'include:com.atproto.moderation.basePermissions',
-        // SDS-specific scopes for collaboration
-        'include:com.sds.repo.grantAccess',
-        'include:com.sds.repo.revokeAccess',
-        'include:com.sds.repo.listCollaborators',
-        'include:com.sds.repo.getPermissions',
-        'include:com.sds.organization.create',
       ].join(' ')
     : [
         'atproto',

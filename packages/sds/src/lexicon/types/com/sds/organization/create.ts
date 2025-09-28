@@ -24,6 +24,8 @@ export interface InputSchema {
   description?: string
   /** Optional custom handle for the organization. If not provided, will be auto-generated. */
   handle?: string
+  /** DID of the user creating the organization. */
+  creatorDid: string
 }
 
 export interface OutputSchema {

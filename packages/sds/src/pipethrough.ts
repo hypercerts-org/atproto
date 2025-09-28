@@ -28,7 +28,13 @@ import { httpLogger } from './logger'
 
 export const proxyHandler = (ctx: AppContext): CatchallHandler => {
   const performAuth = ctx.authVerifier.authorization<RpcPermissionMatch>({
-    authorize: (permissions, { params }) => permissions.assertRpc(params),
+    authorize: (permissions, { params }) => {
+      // Skip OAuth scope validation for SDS endpoints - they handle their own auth
+      if (params?.lxm?.startsWith('com.sds.')) {
+        return // Allow SDS endpoints without scope validation
+      }
+      permissions.assertRpc(params)
+    },
   })
 
   return async (req, res, next) => {

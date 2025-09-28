@@ -8,7 +8,7 @@ export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.revokeAccess({
     auth: ctx.authVerifier.authorization({
       authorize: () => {
-        // Authorization will be handled in the handler where we have access to the repo parameter
+        // Basic authentication required
       },
     }),
     rateLimit: [

@@ -21,11 +21,10 @@ export default function (server: Server, ctx: SdsAppContext) {
       // the handle matches the DID from the request's credentials. In order to
       // avoid fetching the account twice (during auth, and then again in the
       // controller), the checks are disabled here:
-
-      // checkTakedown: true,
-      // checkDeactivated: true,
+      checkTakedown: false,
+      checkDeactivated: false,
       authorize: () => {
-        // SDS permission checks will be performed in the handler as it requires the request body
+        // Basic authentication required
       },
     }),
     rateLimit: [

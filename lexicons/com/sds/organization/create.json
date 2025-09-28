@@ -9,7 +9,7 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["name"],
+          "required": ["name", "creatorDid"],
           "properties": {
             "name": {
               "type": "string",
@@ -25,6 +25,11 @@
               "type": "string",
               "format": "handle",
               "description": "Optional custom handle for the organization. If not provided, will be auto-generated."
+            },
+            "creatorDid": {
+              "type": "string",
+              "format": "did",
+              "description": "DID of the user creating the organization."
             }
           }
         }

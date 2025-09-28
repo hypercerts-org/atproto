@@ -202,6 +202,7 @@ import * as ComAtprotoTempFetchLabels from './types/com/atproto/temp/fetchLabels
 import * as ComAtprotoTempRequestPhoneVerification from './types/com/atproto/temp/requestPhoneVerification.js'
 import * as ComAtprotoTempRevokeAccountCredentials from './types/com/atproto/temp/revokeAccountCredentials.js'
 import * as ComSdsOrganizationCreate from './types/com/sds/organization/create.js'
+import * as ComSdsOrganizationList from './types/com/sds/organization/list.js'
 import * as ComSdsRepoGetPermissions from './types/com/sds/repo/getPermissions.js'
 import * as ComSdsRepoGrantAccess from './types/com/sds/repo/grantAccess.js'
 import * as ComSdsRepoListCollaborators from './types/com/sds/repo/listCollaborators.js'
@@ -2984,6 +2985,18 @@ export class ComSdsOrganizationNS {
     >,
   ) {
     const nsid = 'com.sds.organization.create' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+
+  list<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsOrganizationList.QueryParams,
+      ComSdsOrganizationList.HandlerInput,
+      ComSdsOrganizationList.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.organization.list' // @ts-ignore
     return this._server.xrpc.method(nsid, cfg)
   }
 }
