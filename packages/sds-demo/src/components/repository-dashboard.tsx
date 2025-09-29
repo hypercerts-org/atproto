@@ -62,12 +62,11 @@ export function RepositoryDashboard() {
   // Start with empty state - users will create their own organizations
 
   const createOrganization = async () => {
-    if (!newOrgName.trim() || !session?.did) return
+    if (!newOrgName.trim() || !session?.did || !auth.agent) return
 
     setLoading(true)
     try {
-      // Create a new shared repository on the SDS server
-      // Use direct fetch call since Agent lexicon validation is causing issues
+      // Create a new shared repository on the SDS server using proper lexicon call
       const response = await retryApiCall(async () => {
         console.log('[SDS Demo] Creating organization for user:', session.did)
 
@@ -77,26 +76,18 @@ export function RepositoryDashboard() {
           creatorDid: session.did,
         }
 
-        console.log('[SDS Demo] Making organization creation request...')
+        console.log('[SDS Demo] Making organization creation request via agent...')
         console.log('[SDS Demo] Request payload:', requestPayload)
 
-        const rawResponse = await fetch(`${SDS_SERVER_URL}/xrpc/com.sds.organization.create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestPayload),
-        })
+        // Use the SDS agent to make the call with proper lexicon routing
+        const agentResponse = await auth.agent.call(
+          'com.sds.organization.create',
+          undefined,
+          requestPayload
+        )
 
-        if (!rawResponse.ok) {
-          const errorText = await rawResponse.text()
-          throw new Error(`HTTP ${rawResponse.status}: ${errorText}`)
-        }
-
-        const responseData = await rawResponse.json()
-        console.log('[SDS Demo] Organization created successfully:', responseData)
-
-        return { data: responseData }
+        console.log('[SDS Demo] Organization created successfully:', agentResponse.data)
+        return agentResponse
       })
 
       if (!response?.data) {

@@ -156,32 +156,23 @@ export function useListOrganizationsQuery() {
   return useQuery({
     queryKey: ['sds', 'organizations'],
     queryFn: async (): Promise<any[]> => {
-      if (!auth.signedIn || !auth.session?.did) throw new Error('No authenticated user')
+      if (!auth.signedIn || !auth.session?.did || !auth.agent) throw new Error('No authenticated user or agent')
 
       try {
-        // Use direct fetch since Agent lexicon validation might not work yet
-        const response = await fetch(`http://localhost:2585/xrpc/com.sds.organization.list?userDid=${encodeURIComponent(auth.session.did)}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        // Use the SDS agent to make the call with proper lexicon routing
+        const response = await auth.agent.call('com.sds.organization.list', {
+          userDid: auth.session.did,
         })
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
-        }
-
-        const data = await response.json()
-        console.log('[SDS Demo] Fetched organizations:', data)
-        return data.organizations || []
+        console.log('[SDS Demo] Fetched organizations:', response.data)
+        return response.data.organizations || []
       } catch (error) {
         console.error('Error fetching organizations:', error)
         // Return empty array for graceful fallback
         return []
       }
     },
-    enabled: auth.signedIn && !!auth.session?.did,
+    enabled: auth.signedIn && !!auth.session?.did && !!auth.agent,
   })
 }
 

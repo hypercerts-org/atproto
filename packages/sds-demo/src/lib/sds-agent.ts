@@ -11,29 +11,32 @@ const sdsLexicons: LexiconDoc[] = [
     defs: {
       main: {
         type: 'procedure',
-        description:
-          'Create a new shared repository that can be collaborated on.',
+        description: 'Create a new organization with its own repository that can be shared with collaborators. The creator becomes the owner with full admin privileges.',
         input: {
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['name'],
+            required: ['name', 'creatorDid'],
             properties: {
               name: {
                 type: 'string',
                 maxLength: 100,
-                description: 'The name of the repository.',
+                description: 'The name of the organization.',
               },
               description: {
                 type: 'string',
                 maxLength: 500,
-                description: 'Optional description of the repository.',
+                description: 'Optional description of the organization.',
               },
               handle: {
                 type: 'string',
                 format: 'handle',
-                description:
-                  'Optional custom handle. If not provided, will be auto-generated.',
+                description: 'Optional custom handle for the organization. If not provided, will be auto-generated.',
+              },
+              creatorDid: {
+                type: 'string',
+                format: 'did',
+                description: 'DID of the user creating the organization.',
               },
             },
           },
@@ -42,32 +45,128 @@ const sdsLexicons: LexiconDoc[] = [
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['did', 'handle', 'name'],
+            required: ['did', 'handle', 'name', 'createdAt', 'permissions', 'accessType'],
             properties: {
               did: {
                 type: 'string',
                 format: 'did',
-                description: 'The DID of the created repository.',
+                description: 'The DID of the created organization repository.',
               },
               handle: {
                 type: 'string',
                 format: 'handle',
-                description: 'The handle of the repository.',
+                description: 'The handle of the organization.',
               },
               name: {
                 type: 'string',
-                description: 'The name of the repository.',
+                description: 'The name of the organization.',
               },
               description: {
                 type: 'string',
-                description: 'The description of the repository.',
+                description: 'The description of the organization.',
               },
               createdAt: {
                 type: 'string',
                 format: 'datetime',
-                description: 'When the repository was created.',
+                description: 'When the organization was created.',
+              },
+              permissions: {
+                type: 'ref',
+                ref: 'com.sds.repo.grantAccess#permissions',
+                description: 'The creator\'s permissions for this organization (always full admin).',
+              },
+              accessType: {
+                type: 'string',
+                knownValues: ['owner'],
+                description: 'The creator\'s access type (always owner).',
               },
             },
+          },
+        },
+        errors: [
+          {
+            name: 'InvalidName',
+            description: 'The organization name is invalid or already in use.',
+          },
+          {
+            name: 'HandleTaken',
+            description: 'The specified handle is already taken.',
+          },
+        ],
+      },
+    },
+  },
+  {
+    lexicon: 1,
+    id: 'com.sds.organization.list',
+    defs: {
+      main: {
+        type: 'query',
+        description: 'List organizations that the authenticated user has access to.',
+        parameters: {
+          type: 'params',
+          properties: {
+            userDid: {
+              type: 'string',
+              format: 'did',
+              description: 'DID of the user to list organizations for.',
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['organizations'],
+            properties: {
+              organizations: {
+                type: 'array',
+                items: {
+                  type: 'ref',
+                  ref: '#organization',
+                },
+              },
+            },
+          },
+        },
+      },
+      organization: {
+        type: 'object',
+        description: 'Organization information with user\'s access details',
+        required: ['did', 'handle', 'name', 'permissions', 'accessType'],
+        properties: {
+          did: {
+            type: 'string',
+            format: 'did',
+            description: 'The DID of the organization repository.',
+          },
+          handle: {
+            type: 'string',
+            format: 'handle',
+            description: 'The handle of the organization.',
+          },
+          name: {
+            type: 'string',
+            description: 'The name of the organization.',
+          },
+          description: {
+            type: 'string',
+            description: 'The description of the organization.',
+          },
+          createdAt: {
+            type: 'string',
+            format: 'datetime',
+            description: 'When the organization was created.',
+          },
+          permissions: {
+            type: 'ref',
+            ref: 'com.sds.repo.grantAccess#permissions',
+            description: 'The user\'s permissions for this organization.',
+          },
+          accessType: {
+            type: 'string',
+            knownValues: ['owner', 'collaborator'],
+            description: 'The user\'s access type.',
           },
         },
       },
@@ -207,12 +306,8 @@ const sdsLexicons: LexiconDoc[] = [
                 description: 'The DID of the user to grant access to.',
               },
               permissions: {
-                type: 'object',
-                required: ['read', 'write'],
-                properties: {
-                  read: { type: 'boolean' },
-                  write: { type: 'boolean' },
-                },
+                type: 'ref',
+                ref: '#permissions',
               },
             },
           },
@@ -279,10 +374,14 @@ const sdsLexicons: LexiconDoc[] = [
  */
 export class SdsAgent extends Agent {
   private sdsAgent: Agent
+  private oauthSession: OAuthSession
 
   constructor(session: OAuthSession) {
     // Create main agent for PDS calls
     super(session)
+
+    // Store session reference for SDS calls
+    this.oauthSession = session
 
     // Create separate agent for SDS calls
     // Pass the session to get OAuth authentication, then override the service URL
@@ -308,8 +407,8 @@ export class SdsAgent extends Agent {
 
     // Add SDS lexicons to both agents
     for (const lexicon of sdsLexicons) {
-      ;(this as any).lex.add(lexicon)
-      ;(this.sdsAgent as any).lex.add(lexicon)
+      ; (this as any).lex.add(lexicon)
+        ; (this.sdsAgent as any).lex.add(lexicon)
     }
   }
 
@@ -322,28 +421,53 @@ export class SdsAgent extends Agent {
       this.sdsAgent.api.xrpc.baseUri = SDS_SERVER_URL
       console.log(`[SdsAgent] Final baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
 
-      // For SDS calls, bypass OAuth scope validation by calling XRPC directly
-      // This avoids the Agent's built-in OAuth scope checking that's causing issues
+      // Make direct HTTP calls to SDS server without forced authentication
+      // This allows public endpoints like organization creation to work
       try {
-        const headers: Record<string, string> = {}
-
-        // Add authorization header from the session
-        const accessToken = await this.session.getTokenInfo()
-        if (accessToken?.access_token) {
-          headers['Authorization'] = `Bearer ${accessToken.access_token}`
+        // Build the full URL for the SDS endpoint
+        let url = `${SDS_SERVER_URL}/xrpc/${methodId}`
+        if (params) {
+          const searchParams = new URLSearchParams()
+          for (const [key, value] of Object.entries(params)) {
+            if (value !== undefined) {
+              searchParams.append(key, String(value))
+            }
+          }
+          const queryString = searchParams.toString()
+          if (queryString) {
+            url += `?${queryString}`
+          }
         }
 
-        // Make the XRPC call directly, bypassing Agent's OAuth validation
-        return await this.sdsAgent.api.xrpc.call(methodId, params, data, {
-          ...opts,
+        console.log(`[SdsAgent] Making direct call to: ${url}`)
+
+        // Make direct fetch call without forced authentication
+        const response = await fetch(url, {
+          method: data ? 'POST' : 'GET',
           headers: {
-            ...headers,
+            'Content-Type': 'application/json',
             ...opts?.headers,
           },
+          body: data ? JSON.stringify(data) : undefined,
         })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`[SdsAgent] SDS call failed: ${response.status} ${errorText}`)
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
+
+        const responseData = await response.json()
+        console.log(`[SdsAgent] SDS call succeeded:`, responseData)
+
+        return {
+          success: response.ok,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: responseData,
+        }
       } catch (error) {
-        console.error(`[SdsAgent] Direct XRPC call failed:`, error)
-        // Fallback to regular call if direct XRPC fails
+        console.error(`[SdsAgent] Direct SDS call failed:`, error)
+        // Fallback to regular agent call if direct call fails
         return await this.sdsAgent.call(methodId, params, data, opts)
       }
     }
