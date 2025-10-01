@@ -52,11 +52,19 @@ export async function grantRepositoryAccess(
   console.log('[CollabService] Granting access:', request)
 
   try {
-    const response = await agent.call('com.sds.repo.grantAccess', request)
+    // The agent.call method expects (lexicon, params, data)
+    // For procedures that take input in the body, pass undefined for params and the body data as the third argument
+    const response = await agent.call('com.sds.repo.grantAccess', undefined, request)
     console.log('[CollabService] Access granted successfully:', response.data)
     return response.data
   } catch (error) {
     console.error('[CollabService] Grant access failed:', error)
+    console.error('[CollabService] Error details:', {
+      message: error?.message,
+      status: error?.status,
+      error: error?.error,
+      response: error?.response?.data || error?.response
+    })
     throw error
   }
 }
@@ -72,7 +80,7 @@ export async function revokeRepositoryAccess(
   console.log('[CollabService] Revoking access:', { repoDid, userDid })
 
   try {
-    const response = await agent.call('com.sds.repo.revokeAccess', {
+    const response = await agent.call('com.sds.repo.revokeAccess', undefined, {
       repo: repoDid,
       userDid: userDid,
     })
@@ -80,6 +88,12 @@ export async function revokeRepositoryAccess(
     return response.data
   } catch (error) {
     console.error('[CollabService] Revoke access failed:', error)
+    console.error('[CollabService] Revoke error details:', {
+      message: error?.message,
+      status: error?.status,
+      error: error?.error,
+      response: error?.response?.data || error?.response
+    })
     throw error
   }
 }
@@ -126,10 +140,12 @@ export async function getRepositoryPermissions(
 ): Promise<GetPermissionsResponse> {
   console.log('[CollabService] Getting permissions:', { repoDid, userDid })
 
-  let url = `${SDS_SERVER_URL}/xrpc/com.sds.repo.getPermissions?repo=${encodeURIComponent(repoDid)}`
-  if (userDid) {
-    url += `&userDid=${encodeURIComponent(userDid)}`
+  // Backend requires userDid parameter
+  if (!userDid) {
+    throw new Error('userDid is required for getPermissions call')
   }
+
+  let url = `${SDS_SERVER_URL}/xrpc/com.sds.repo.getPermissions?repo=${encodeURIComponent(repoDid)}&userDid=${encodeURIComponent(userDid)}`
 
   const response = await fetch(url, {
     method: 'GET',

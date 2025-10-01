@@ -37,6 +37,13 @@ export default function (server: Server, ctx: SdsAppContext) {
           )
         }
 
+        // Validate admin permission if provided
+        if (permissions.admin !== undefined && typeof permissions.admin !== 'boolean') {
+          throw new InvalidRequestError(
+            'Admin permission must be a boolean value',
+          )
+        }
+
         // Find the repository account
         const account = await ctx.authVerifier.findAccount(repo, {
           checkDeactivated: true,

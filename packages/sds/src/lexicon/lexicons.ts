@@ -13984,6 +13984,12 @@ export const schemaDict = {
               description:
                 'The handle or DID of the repository to check permissions for.',
             },
+            userDid: {
+              type: 'string',
+              format: 'did',
+              description:
+                'The DID of the user to check permissions for (optional, for unauthenticated calls).',
+            },
           },
         },
         output: {

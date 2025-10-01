@@ -19,6 +19,7 @@ import { Spinner } from './spinner.tsx'
 import { CollaborationModal } from './collaboration-modal.tsx'
 import { PermissionBadge } from './permission-badge.tsx'
 import { RepositoryCard } from './repository-card.tsx'
+import { CollaborationDebug } from './collaboration-debug.tsx'
 
 export function RepositoryDashboard() {
   const auth = useAuthContext()
@@ -195,6 +196,9 @@ You are the owner and can now invite collaborators to share this repository.`)
 
   return (
     <div className="space-y-6">
+      {/* Debug Info */}
+      <CollaborationDebug />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Your Shared Repositories</h2>

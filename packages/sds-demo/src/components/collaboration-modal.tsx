@@ -28,16 +28,36 @@ export function CollaborationModal({
   repositoryDid,
   repositoryHandle,
 }: CollaborationModalProps) {
-  const [activeTab, setActiveTab] = useState<'collaborators' | 'grant'>('collaborators')
+  const [activeTab, setActiveTab] = useState<'collaborators' | 'add'>('collaborators')
   const [userDid, setUserDid] = useState('')
   const [permissions, setPermissions] = useState<RepositoryPermissions>({
     read: true,
     write: false,
   })
+  const [selectedRole, setSelectedRole] = useState<'viewer' | 'contributor' | 'admin'>('viewer')
+
+  // Role definitions
+  const roles = {
+    viewer: {
+      name: 'Viewer',
+      description: 'Can view repository content',
+      permissions: { read: true, write: false, admin: false }
+    },
+    contributor: {
+      name: 'Contributor',
+      description: 'Can view and modify repository content',
+      permissions: { read: true, write: true, admin: false }
+    },
+    admin: {
+      name: 'Admin',
+      description: 'Full access including user management',
+      permissions: { read: true, write: true, admin: true }
+    }
+  }
 
   // Query hooks
   const collaboratorsQuery = useListCollaboratorsQuery(repositoryDid, isOpen)
-  const { canManage } = useCanManageRepository(repositoryDid)
+  const { canManage, isDirectOwner, isLoading: canManageLoading } = useCanManageRepository(repositoryDid)
 
   // Mutation hooks
   const grantAccessMutation = useGrantAccessMutation()
@@ -52,19 +72,30 @@ export function CollaborationModal({
     }
 
     try {
+      const rolePermissions = roles[selectedRole].permissions
       await grantAccessMutation.mutateAsync({
         repo: repositoryDid,
         userDid: userDid.trim(),
-        permissions,
+        permissions: rolePermissions,
       })
 
       // Reset form
       setUserDid('')
+      setSelectedRole('viewer')
       setPermissions({ read: true, write: false })
       setActiveTab('collaborators') // Switch back to collaborators tab
     } catch (error) {
       console.error('Failed to grant access:', error)
-      alert(`Failed to grant access: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Full error object:', JSON.stringify(error, null, 2))
+
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error)
+      }
+
+      alert(`Failed to grant access: ${errorMessage}`)
     }
   }
 
@@ -118,23 +149,39 @@ export function CollaborationModal({
           >
             Collaborators ({collaboratorsQuery.data?.collaborators?.length || 0})
           </button>
-          {canManage && (
-            <button
-              onClick={() => setActiveTab('grant')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'grant'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Grant Access
-            </button>
-          )}
+
+          <button
+            onClick={() => setActiveTab('add')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'add'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            disabled={!canManage}
+          >
+            Add Collaborator {!canManage && '(Owner Only)'}
+          </button>
         </div>
 
         {/* Tab Content */}
         {activeTab === 'collaborators' && (
           <div>
+            {/* Debug Info */}
+            <div className="mb-4 p-3 bg-blue-50 rounded border text-sm">
+              <div><strong>Repository DID:</strong> {repositoryDid}</div>
+              <div><strong>Is Direct Owner:</strong> {isDirectOwner ? 'Yes' : 'No'}</div>
+              <div><strong>Can Manage:</strong> {canManageLoading ? 'Loading...' : canManage ? 'Yes' : 'No'}</div>
+              <div><strong>Query Status:</strong> {collaboratorsQuery.isLoading ? 'Loading' : collaboratorsQuery.error ? 'Error' : 'Success'}</div>
+              {collaboratorsQuery.error && (
+                <div className="text-red-600 mt-1">
+                  <strong>Error:</strong> {collaboratorsQuery.error instanceof Error ? collaboratorsQuery.error.message : 'Unknown error'}
+                </div>
+              )}
+              {collaboratorsQuery.data && (
+                <div><strong>Collaborators Found:</strong> {collaboratorsQuery.data.collaborators?.length || 0}</div>
+              )}
+            </div>
+
             {/* Loading State */}
             {collaboratorsQuery.isLoading && (
               <div className="flex items-center justify-center py-8">
@@ -225,7 +272,8 @@ export function CollaborationModal({
           </div>
         )}
 
-        {activeTab === 'grant' && canManage && (
+        {activeTab === 'add' && (
+          canManage ? (
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">User DID</label>
@@ -242,30 +290,30 @@ export function CollaborationModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Permissions</label>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Role</label>
               <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={permissions.read}
-                    onChange={(e) => setPermissions({ ...permissions, read: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    <strong>Read</strong> - Can view repository content
-                  </span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={permissions.write}
-                    onChange={(e) => setPermissions({ ...permissions, write: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    <strong>Write</strong> - Can create and modify content in the repository
-                  </span>
-                </label>
+                {Object.entries(roles).map(([roleKey, role]) => (
+                  <label key={roleKey} className="flex items-start">
+                    <input
+                      type="radio"
+                      name="role"
+                      value={roleKey}
+                      checked={selectedRole === roleKey}
+                      onChange={(e) => setSelectedRole(e.target.value as 'viewer' | 'contributor' | 'admin')}
+                      className="h-4 w-4 mt-0.5 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <div className="ml-3">
+                      <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                      <div className="text-xs text-gray-500">{role.description}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Permissions: {Object.entries(role.permissions)
+                          .filter(([, value]) => value)
+                          .map(([key]) => key)
+                          .join(', ')}
+                      </div>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -281,22 +329,34 @@ export function CollaborationModal({
                 disabled={
                   !userDid.trim() ||
                   !validateDid(userDid.trim()) ||
-                  grantAccessMutation.isLoading ||
-                  (!permissions.read && !permissions.write)
+                  grantAccessMutation.isLoading
                 }
                 className="bg-blue-600 text-white hover:bg-blue-700"
               >
                 {grantAccessMutation.isLoading ? (
                   <>
                     <Spinner className="mr-2 h-4 w-4" />
-                    Granting Access...
+                    Adding Collaborator...
                   </>
                 ) : (
-                  'Grant Access'
+                  `Add as ${roles[selectedRole].name}`
                 )}
               </Button>
             </div>
           </div>
+          ) : (
+            <div className="rounded-lg bg-gray-50 p-8 text-center text-gray-600">
+              <div className="mx-auto mb-4 h-12 w-12 text-gray-400">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="mb-2 text-sm font-medium text-gray-900">Owner Access Required</h3>
+              <p className="text-sm text-gray-500">
+                Only repository owners can add new collaborators.
+              </p>
+            </div>
+          )
         )}
 
         {/* Footer */}

@@ -185,12 +185,26 @@ export function useListCollaboratorsQuery(repoDid: string, enabled = true) {
 export function useGetPermissionsQuery(repoDid: string, userDid?: string, enabled = true) {
   const auth = useAuthContext()
 
+  const shouldEnable = enabled && !!repoDid && !!userDid
+
+  console.log('[useGetPermissionsQuery] Debug:', {
+    repoDid,
+    userDid,
+    enabled,
+    shouldEnable,
+    hasRepoDid: !!repoDid,
+    hasUserDid: !!userDid,
+    userDidType: typeof userDid,
+    userDidValue: userDid
+  })
+
   return useQuery({
     queryKey: collaborationKeys.permissions(repoDid, userDid),
     queryFn: async (): Promise<GetPermissionsResponse> => {
+      console.log('[useGetPermissionsQuery] Running queryFn with:', { repoDid, userDid })
       return await getRepositoryPermissions(repoDid, userDid)
     },
-    enabled: enabled && !!repoDid,
+    enabled: shouldEnable,
     staleTime: 60 * 1000, // Consider data fresh for 1 minute
     cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     retry: (failureCount, error) => {
@@ -218,13 +232,29 @@ export function useMyPermissionsQuery(repoDid: string, enabled = true) {
  * Utility hook to check if the current user can manage a repository (grant/revoke access)
  */
 export function useCanManageRepository(repoDid: string) {
+  const auth = useAuthContext()
   const permissionsQuery = useMyPermissionsQuery(repoDid)
 
+  // Primary check: if the repository DID matches the user DID, they own it
+  const isDirectOwner = auth.signedIn && auth.session?.did === repoDid
+
+  // If user is not signed in, they cannot manage
+  if (!auth.signedIn) {
+    return {
+      canManage: false,
+      isLoading: false,
+      error: null,
+      isDirectOwner: false,
+    }
+  }
+
   return {
-    canManage: permissionsQuery.data?.accessType === 'owner' ||
+    canManage: isDirectOwner ||
+               permissionsQuery.data?.accessType === 'owner' ||
                permissionsQuery.data?.permissions?.admin === true,
     isLoading: permissionsQuery.isLoading,
     error: permissionsQuery.error,
+    isDirectOwner,
   }
 }
 
