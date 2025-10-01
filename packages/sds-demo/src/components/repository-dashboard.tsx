@@ -12,9 +12,13 @@ import {
   useCreateRecordMutation,
   useListOrganizationsQuery,
 } from '../queries/use-sds-queries.ts'
+import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
 import { retryApiCall } from '../utils/api-retry.ts'
 import { Button } from './button.tsx'
 import { Spinner } from './spinner.tsx'
+import { CollaborationModal } from './collaboration-modal.tsx'
+import { PermissionBadge } from './permission-badge.tsx'
+import { RepositoryCard } from './repository-card.tsx'
 
 export function RepositoryDashboard() {
   const auth = useAuthContext()
@@ -27,9 +31,35 @@ export function RepositoryDashboard() {
   const [showCreateOrg, setShowCreateOrg] = useState(false)
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgDescription, setNewOrgDescription] = useState('')
+  const [collaborationModal, setCollaborationModal] = useState<{
+    isOpen: boolean
+    repositoryDid: string
+    repositoryHandle: string
+  }>({
+    isOpen: false,
+    repositoryDid: '',
+    repositoryHandle: '',
+  })
 
   const createRecordMutation = useCreateRecordMutation()
   const organizationsQuery = useListOrganizationsQuery()
+
+  // Helper functions for collaboration modal
+  const openCollaborationModal = (repositoryDid: string, repositoryHandle: string) => {
+    setCollaborationModal({
+      isOpen: true,
+      repositoryDid,
+      repositoryHandle,
+    })
+  }
+
+  const closeCollaborationModal = () => {
+    setCollaborationModal({
+      isOpen: false,
+      repositoryDid: '',
+      repositoryHandle: '',
+    })
+  }
 
   // Load existing organizations on component mount
   useEffect(() => {
@@ -268,62 +298,13 @@ You are the owner and can now invite collaborators to share this repository.`)
       {/* Repository List */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {repositories.map((repo) => (
-          <div
+          <RepositoryCard
             key={repo.did}
-            className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
-              selectedRepo === repo.did
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-            onClick={() => setSelectedRepo(repo.did)}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-medium text-gray-900">{repo.handle}</h3>
-              <span
-                className={`rounded-full px-2 py-1 text-xs font-medium ${
-                  repo.accessType === 'owner'
-                    ? 'bg-green-100 text-green-800'
-                    : repo.accessType === 'shared'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                {repo.accessType}
-              </span>
-            </div>
-
-            <div className="mb-2 text-xs text-gray-500">
-              {repo.did.slice(0, 20)}...
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex space-x-2">
-                <span
-                  className={`rounded px-2 py-1 ${
-                    repo.permissions.read
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  Read: {repo.permissions.read ? '✓' : '✗'}
-                </span>
-                <span
-                  className={`rounded px-2 py-1 ${
-                    repo.permissions.write
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
-                >
-                  Write: {repo.permissions.write ? '✓' : '✗'}
-                </span>
-              </div>
-              {repo.collaboratorCount && (
-                <span className="text-gray-500">
-                  {repo.collaboratorCount} collaborators
-                </span>
-              )}
-            </div>
-          </div>
+            repository={repo}
+            isSelected={selectedRepo === repo.did}
+            onSelect={() => setSelectedRepo(repo.did)}
+            onManageCollaborators={() => openCollaborationModal(repo.did, repo.handle)}
+          />
         ))}
       </div>
 
@@ -369,6 +350,14 @@ You are the owner and can now invite collaborators to share this repository.`)
           <p>Select a repository to view details and create content</p>
         </div>
       )}
+
+      {/* Collaboration Modal */}
+      <CollaborationModal
+        isOpen={collaborationModal.isOpen}
+        onClose={closeCollaborationModal}
+        repositoryDid={collaborationModal.repositoryDid}
+        repositoryHandle={collaborationModal.repositoryHandle}
+      />
     </div>
   )
 }

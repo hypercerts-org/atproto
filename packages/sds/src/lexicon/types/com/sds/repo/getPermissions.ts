@@ -18,6 +18,8 @@ const id = 'com.sds.repo.getPermissions'
 export type QueryParams = {
   /** The handle or DID of the repository to check permissions for. */
   repo: string
+  /** The DID of the user to check permissions for (optional, for unauthenticated calls). */
+  userDid?: string
 }
 export type InputSchema = undefined
 

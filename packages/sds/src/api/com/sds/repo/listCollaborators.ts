@@ -5,21 +5,16 @@ import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.listCollaborators({
-    auth: ctx.authVerifier.authorization({
-      authorize: () => {
-        // Basic authentication required
-      },
-    }),
+    auth: ctx.authVerifier.unauthenticated,
     rateLimit: [
       {
-        name: 'sds-permission-read',
-        calcKey: ({ auth }) => auth.credentials.did,
+        name: 'sds-permission-read-unauth',
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 1,
       },
     ],
-    handler: async ({ params, auth }) => {
+    handler: async ({ params }) => {
       const { repo, limit = 50, cursor } = params
-      const requestorDid = auth.credentials.did
 
       try {
         // Find the repository account
@@ -30,20 +25,8 @@ export default function (server: Server, ctx: SdsAppContext) {
 
         const repoDid = account.did
 
-        // Check if the authenticated user has permission to view collaborators
-        // Repository owners can always view collaborators
-        // Collaborators with read access can also view the collaborator list
-        const hasAccess = await ctx.authVerifier.checkRepositoryAccess(
-          repoDid,
-          requestorDid,
-          'read',
-        )
-
-        if (!hasAccess) {
-          throw new AuthRequiredError(
-            'Insufficient permissions to view repository collaborators',
-          )
-        }
+        // For PoC - allow public listing of collaborators
+        // In production, you might want to add access control here
 
         // Get collaborators from permission manager
         const allCollaborators =

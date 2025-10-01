@@ -5,21 +5,16 @@ import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.getPermissions({
-    auth: ctx.authVerifier.authorization({
-      authorize: () => {
-        // Basic authentication required
-      },
-    }),
+    auth: ctx.authVerifier.unauthenticated,
     rateLimit: [
       {
-        name: 'sds-permission-read',
-        calcKey: ({ auth }) => auth.credentials.did,
+        name: 'sds-permission-read-unauth',
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 1,
       },
     ],
-    handler: async ({ params, auth }) => {
-      const { repo } = params
-      const userDid = auth.credentials.did
+    handler: async ({ params }) => {
+      const { repo, userDid } = params
 
       try {
         // Find the repository account
@@ -29,6 +24,12 @@ export default function (server: Server, ctx: SdsAppContext) {
         })
 
         const repoDid = account.did
+
+        // For PoC - allow querying permissions for any user/repo combination
+        // userDid parameter is required for this endpoint
+        if (!userDid) {
+          throw new InvalidRequestError('userDid parameter is required')
+        }
 
         // Check if this is the repository owner
         if (repoDid === userDid) {

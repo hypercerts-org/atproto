@@ -1,7 +1,6 @@
 import { useAuthContext } from './auth/auth-provider.tsx'
 import { OAuthLogin } from './auth/oauth-login.tsx'
 import { useGlobalAgent } from './auth/use-global-agent.ts'
-import { CollaborationPanel } from './components/collaboration-panel.tsx'
 import { ProfileInfo } from './components/profile-info.tsx'
 import { RepositoryDashboard } from './components/repository-dashboard.tsx'
 import { SessionInfo } from './components/session-info.tsx'
@@ -39,13 +38,6 @@ function App() {
               <RepositoryDashboard />
             </div>
 
-            {/* Collaboration Panel */}
-            <div className="rounded-lg bg-white p-6 shadow-md">
-              <h2 className="mb-4 text-xl font-semibold text-gray-800">
-                Collaboration Management
-              </h2>
-              <CollaborationPanel />
-            </div>
 
             {/* Technical Details (collapsible) */}
             <details className="rounded-lg bg-gray-50 p-6 shadow-md">

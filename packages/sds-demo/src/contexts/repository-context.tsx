@@ -4,8 +4,11 @@ export interface Repository {
   did: string
   handle: string
   accessType: 'owner' | 'shared' | 'none'
-  permissions?: { read: boolean; write: boolean }
+  permissions?: { read: boolean; write: boolean; admin?: boolean }
   collaboratorCount?: number
+  isOwner?: boolean // Helper to quickly check if current user is owner
+  createdAt?: string
+  description?: string
 }
 
 interface RepositoryContextType {
@@ -16,6 +19,8 @@ interface RepositoryContextType {
   addRepository: (repo: Repository) => void
   updateRepository: (did: string, updates: Partial<Repository>) => void
   removeRepository: (did: string) => void
+  updateCollaborators: (did: string, collaboratorCount: number) => void
+  refreshRepository: (did: string) => void
 }
 
 const RepositoryContext = createContext<RepositoryContextType | undefined>(
@@ -57,6 +62,22 @@ export function RepositoryProvider({ children }: RepositoryProviderProps) {
     }
   }
 
+  const updateCollaborators = (did: string, collaboratorCount: number) => {
+    setRepositories((prev) =>
+      prev.map((repo) =>
+        repo.did === did
+          ? { ...repo, collaboratorCount }
+          : repo
+      )
+    )
+  }
+
+  const refreshRepository = (did: string) => {
+    // This method can be used to trigger a refresh of repository data
+    // For now, it's a placeholder that could be extended to call APIs
+    console.log(`Refreshing repository data for ${did}`)
+  }
+
   return (
     <RepositoryContext.Provider
       value={{
@@ -67,6 +88,8 @@ export function RepositoryProvider({ children }: RepositoryProviderProps) {
         addRepository,
         updateRepository,
         removeRepository,
+        updateCollaborators,
+        refreshRepository,
       }}
     >
       {children}

@@ -1,0 +1,309 @@
+// Repository Collaboration Modal - Manage repository access and collaborators
+import { useState } from 'react'
+import { Button } from './button.tsx'
+import { Spinner } from './spinner.tsx'
+import {
+  useGrantAccessMutation,
+  useRevokeAccessMutation,
+  useListCollaboratorsQuery,
+  useCanManageRepository,
+} from '../queries/use-collaboration-queries.ts'
+import {
+  validateDid,
+  formatCollaboratorName,
+  getPermissionLevel,
+  type RepositoryPermissions,
+} from '../services/collaboration-service.ts'
+
+interface CollaborationModalProps {
+  isOpen: boolean
+  onClose: () => void
+  repositoryDid: string
+  repositoryHandle: string
+}
+
+export function CollaborationModal({
+  isOpen,
+  onClose,
+  repositoryDid,
+  repositoryHandle,
+}: CollaborationModalProps) {
+  const [activeTab, setActiveTab] = useState<'collaborators' | 'grant'>('collaborators')
+  const [userDid, setUserDid] = useState('')
+  const [permissions, setPermissions] = useState<RepositoryPermissions>({
+    read: true,
+    write: false,
+  })
+
+  // Query hooks
+  const collaboratorsQuery = useListCollaboratorsQuery(repositoryDid, isOpen)
+  const { canManage } = useCanManageRepository(repositoryDid)
+
+  // Mutation hooks
+  const grantAccessMutation = useGrantAccessMutation()
+  const revokeAccessMutation = useRevokeAccessMutation()
+
+  if (!isOpen) return null
+
+  const handleGrantAccess = async () => {
+    if (!validateDid(userDid.trim())) {
+      alert('Please enter a valid DID (must start with "did:")')
+      return
+    }
+
+    try {
+      await grantAccessMutation.mutateAsync({
+        repo: repositoryDid,
+        userDid: userDid.trim(),
+        permissions,
+      })
+
+      // Reset form
+      setUserDid('')
+      setPermissions({ read: true, write: false })
+      setActiveTab('collaborators') // Switch back to collaborators tab
+    } catch (error) {
+      console.error('Failed to grant access:', error)
+      alert(`Failed to grant access: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleRevokeAccess = async (collaboratorDid: string) => {
+    if (!window.confirm(`Are you sure you want to revoke access for ${collaboratorDid}?`)) {
+      return
+    }
+
+    try {
+      await revokeAccessMutation.mutateAsync({
+        repoDid: repositoryDid,
+        userDid: collaboratorDid,
+      })
+    } catch (error) {
+      console.error('Failed to revoke access:', error)
+      alert(`Failed to revoke access: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Repository Collaboration</h2>
+            <p className="text-sm text-gray-600">
+              Manage access to <span className="font-medium">{repositoryHandle}</span>
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            aria-label="Close"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6 flex space-x-1 border-b">
+          <button
+            onClick={() => setActiveTab('collaborators')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'collaborators'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Collaborators ({collaboratorsQuery.data?.collaborators?.length || 0})
+          </button>
+          {canManage && (
+            <button
+              onClick={() => setActiveTab('grant')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'grant'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Grant Access
+            </button>
+          )}
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'collaborators' && (
+          <div>
+            {/* Loading State */}
+            {collaboratorsQuery.isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Spinner />
+                <span className="ml-2 text-gray-600">Loading collaborators...</span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {collaboratorsQuery.error && (
+              <div className="rounded-lg bg-red-50 p-4 text-red-800">
+                <p className="font-medium">Failed to load collaborators</p>
+                <p className="text-sm mt-1">
+                  {collaboratorsQuery.error instanceof Error
+                    ? collaboratorsQuery.error.message
+                    : 'Unknown error occurred'}
+                </p>
+              </div>
+            )}
+
+            {/* Collaborators List */}
+            {collaboratorsQuery.data && (
+              <>
+                {collaboratorsQuery.data.collaborators.length === 0 ? (
+                  <div className="rounded-lg bg-gray-50 p-8 text-center text-gray-600">
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                      />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No collaborators</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {canManage
+                        ? 'Grant access to other users to start collaborating.'
+                        : 'This repository has no additional collaborators.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {collaboratorsQuery.data.collaborators.map((collaborator) => (
+                      <div
+                        key={collaborator.userDid}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <p className="font-medium text-gray-900 truncate">
+                              {formatCollaboratorName(collaborator)}
+                            </p>
+                            <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+                              {getPermissionLevel(collaborator.permissions)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 truncate">{collaborator.userDid}</p>
+                          <p className="text-xs text-gray-400">
+                            Granted {new Date(collaborator.grantedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {canManage && (
+                          <Button
+                            onClick={() => handleRevokeAccess(collaborator.userDid)}
+                            size="small"
+                            disabled={revokeAccessMutation.isLoading}
+                            className="ml-4 bg-red-600 text-white hover:bg-red-700"
+                          >
+                            {revokeAccessMutation.isLoading &&
+                            revokeAccessMutation.variables?.userDid === collaborator.userDid ? (
+                              <Spinner className="h-4 w-4" />
+                            ) : (
+                              'Revoke'
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'grant' && canManage && (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">User DID</label>
+              <input
+                type="text"
+                value={userDid}
+                onChange={(e) => setUserDid(e.target.value)}
+                placeholder="did:plc:example123..."
+                className="mt-1 w-full rounded-lg border border-gray-300 p-3 focus:border-blue-500 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Enter the DID of the user you want to grant access to
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Permissions</label>
+              <div className="space-y-3">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={permissions.read}
+                    onChange={(e) => setPermissions({ ...permissions, read: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    <strong>Read</strong> - Can view repository content
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={permissions.write}
+                    onChange={(e) => setPermissions({ ...permissions, write: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    <strong>Write</strong> - Can create and modify content in the repository
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                onClick={() => setActiveTab('collaborators')}
+                disabled={grantAccessMutation.isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGrantAccess}
+                disabled={
+                  !userDid.trim() ||
+                  !validateDid(userDid.trim()) ||
+                  grantAccessMutation.isLoading ||
+                  (!permissions.read && !permissions.write)
+                }
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {grantAccessMutation.isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    Granting Access...
+                  </>
+                ) : (
+                  'Grant Access'
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-6 flex justify-end">
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
