@@ -1,14 +1,16 @@
 // SDS Grant Access Endpoint - Allows repository owners to grant access to collaborators
 import { AuthRequiredError, InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from '../../../../lexicon'
+import { ids } from '../../../../lexicon/lexicons'
 import { SdsAppContext } from '../../../../sds-context'
 import { RepositoryPermissions, SdsPermissionError } from '../../../../types'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.grantAccess({
     auth: ctx.authVerifier.authorization({
-      authorize: () => {
-        // Basic authentication required
+      authorize: (permissions, authCtx) => {
+        // Use standard AT Protocol repository permissions - no RPC scope needed
+        // The repo:* scope from the user's PDS should be sufficient
       },
     }),
     rateLimit: [
@@ -23,6 +25,20 @@ export default function (server: Server, ctx: SdsAppContext) {
       const grantedByDid = auth.credentials.did
 
       try {
+        // Find the repository account first to get repoDid
+        const account = await ctx.authVerifier.findAccount(repo, {
+          checkDeactivated: true,
+          checkTakedown: true,
+        })
+        const repoDid = account.did
+
+        // Validate OAuth scope for repository collaboration management using standard repo permissions
+        if (auth.credentials.type === 'oauth') {
+          auth.credentials.permissions.assertRepo({
+            collection: 'com.sds.repo.collaborators',
+            action: 'create',
+          })
+        }
         // Validate permissions object
         if (!permissions || typeof permissions !== 'object') {
           throw new InvalidRequestError('Invalid permissions object')
@@ -44,19 +60,16 @@ export default function (server: Server, ctx: SdsAppContext) {
           )
         }
 
-        // Find the repository account
-        const account = await ctx.authVerifier.findAccount(repo, {
-          checkDeactivated: true,
-          checkTakedown: true,
-        })
-
-        const repoDid = account.did
-
         // Check if the authenticated user has permission to grant access
-        // Only repository owners can grant access (for now)
-        if (repoDid !== grantedByDid) {
+        // Repository owners and users with admin permissions can grant access
+        const isOwner = await ctx.permissionManager.isOwner(repoDid, grantedByDid)
+        const hasAdminAccess = await ctx.permissionManager.checkAccess(repoDid, grantedByDid, 'admin')
+
+        console.log(`[SDS] Grant access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${grantedByDid}, Repo: ${repoDid}`)
+
+        if (!isOwner && !hasAdminAccess) {
           throw new AuthRequiredError(
-            'Only repository owners can grant access to collaborators',
+            'Only repository owners and admin users can grant access to collaborators',
           )
         }
 

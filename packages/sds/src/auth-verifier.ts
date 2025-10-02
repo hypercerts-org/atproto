@@ -248,12 +248,17 @@ export class AuthVerifier {
 
     return async (ctx) => {
       const type = extractAuthType(ctx.req)
+      console.log('[Auth] Request URL:', ctx.req.url)
+      console.log('[Auth] Detected auth type:', type)
+      console.log('[Auth] Authorization header present:', !!ctx.req.headers.authorization)
 
       if (type === AuthType.BEARER) {
+        console.log('[Auth] Routing to access method (Bearer)')
         return access(ctx)
       }
 
       if (type === AuthType.DPOP) {
+        console.log('[Auth] Routing to oauth method (DPoP)')
         return oauth(ctx)
       }
 
@@ -609,10 +614,16 @@ const parseAuthorizationHeader = (
   req: IncomingMessage,
 ): [type: null] | [type: AuthType, token: string] => {
   const authorization = req.headers['authorization']
-  if (!authorization) return [null]
+  console.log('[Auth] Parsing authorization header:', authorization?.slice(0, 30) + '...')
+
+  if (!authorization) {
+    console.log('[Auth] No authorization header found')
+    return [null]
+  }
 
   const result = authorization.split(' ')
   if (result.length !== 2) {
+    console.log('[Auth] Malformed authorization header - wrong number of parts:', result.length)
     throw new InvalidRequestError(
       'Malformed authorization header',
       'InvalidToken',
@@ -621,8 +632,10 @@ const parseAuthorizationHeader = (
 
   // authorization type is case-insensitive
   const authType = result[0].toUpperCase()
+  console.log('[Auth] Auth type from header:', authType)
 
   const type = Object.hasOwn(AuthType, authType) ? AuthType[authType] : null
+  console.log('[Auth] Mapped auth type:', type)
   if (type) return [type, result[1]]
 
   throw new InvalidRequestError(

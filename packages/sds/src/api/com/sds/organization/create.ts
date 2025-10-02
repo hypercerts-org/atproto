@@ -73,12 +73,12 @@ export default function (server: Server, ctx: SdsAppContext) {
           deactivated: false,
         })
 
-        // Grant the creator full admin access to this organization repository
+        // Grant the creator full ownership of this organization repository
         // This makes them the owner through the SDS RBAC system
         await ctx.permissionManager.grantAccess(
           orgDid,
           creatorDid,
-          { read: true, write: true, admin: true },
+          { read: true, write: true, admin: true, owner: true },
           creatorDid, // Self-granted as the creator
         )
 
@@ -100,11 +100,12 @@ export default function (server: Server, ctx: SdsAppContext) {
             name: name.trim(),
             description: description?.trim(),
             createdAt: new Date().toISOString(),
-            // The creating user has full admin rights through SDS RBAC
+            // The creating user has full ownership rights through SDS RBAC
             permissions: {
               read: true,
               write: true,
               admin: true,
+              owner: true,
             },
             accessType: 'owner',
           },

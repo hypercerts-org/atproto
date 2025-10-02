@@ -20,24 +20,27 @@ export class SdsPermissionManager {
     action: keyof RepositoryPermissions,
   ): Promise<boolean> {
     try {
-      // Owner always has full access (maintains PDS behavior)
-      if (repoDid === userDid) return true
+      // Repository DIDs are different from user DIDs - check for explicit owner permission
+      const permissions = await this.getPermissions(repoDid, userDid)
 
-      // Check shared permissions
-      const result = await this.db.db
-        .selectFrom('shared_repository_permissions')
-        .select(['permissions'])
-        .where('repoDid', '=', repoDid)
-        .where('userDid', '=', userDid)
-        .where('revokedAt', 'is', null)
-        .executeTakeFirst()
+      if (!permissions) return false
 
-      if (!result) return false
-
-      const permissions: RepositoryPermissions = JSON.parse(result.permissions)
       return permissions[action] ?? false
     } catch (error) {
       console.error('Error checking repository access:', error)
+      return false
+    }
+  }
+
+  /**
+   * Check if a user is the owner of a repository
+   */
+  async isOwner(repoDid: string, userDid: string): Promise<boolean> {
+    try {
+      const permissions = await this.getPermissions(repoDid, userDid)
+      return permissions?.owner ?? false
+    } catch (error) {
+      console.error('Error checking repository ownership:', error)
       return false
     }
   }

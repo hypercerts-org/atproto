@@ -204,6 +204,8 @@ const sdsLexicons: LexiconDoc[] = [
                 properties: {
                   read: { type: 'boolean' },
                   write: { type: 'boolean' },
+                  admin: { type: 'boolean' },
+                  owner: { type: 'boolean' },
                 },
               },
               accessType: {
@@ -267,6 +269,8 @@ const sdsLexicons: LexiconDoc[] = [
                       properties: {
                         read: { type: 'boolean' },
                         write: { type: 'boolean' },
+                        admin: { type: 'boolean' },
+                        owner: { type: 'boolean' },
                       },
                     },
                     grantedBy: { type: 'string', format: 'did' },
@@ -416,15 +420,20 @@ export class SdsAgent extends Agent {
   async call(methodId: string, params?: any, data?: any, opts?: any) {
     // Route SDS-specific calls to the SDS server
     if (methodId.startsWith('com.sds.')) {
-      console.log(`[SdsAgent] Routing ${methodId} to SDS server at ${this.sdsAgent.api.xrpc.baseUri}`)
-      // Ensure the baseUri is correct before making the call
-      this.sdsAgent.api.xrpc.baseUri = SDS_SERVER_URL
-      console.log(`[SdsAgent] Final baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
+      console.log(`[SdsAgent] Routing ${methodId} to SDS server`)
+      console.log(`[SdsAgent] Expected SDS URL: ${SDS_SERVER_URL}`)
+      console.log(`[SdsAgent] Current baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
 
-      // Make direct HTTP calls to SDS server without forced authentication
-      // This allows public endpoints like organization creation to work
+      // Force the baseUri to be correct before making the call
+      this.sdsAgent.api.xrpc.baseUri = SDS_SERVER_URL
+      console.log(`[SdsAgent] Updated baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
+
+      // Use direct HTTP call with OAuth bearer token to avoid client-side RPC scope validation
+      // This bypasses the OAuth agent's service URL restrictions and scope validation
       try {
-        // Build the full URL for the SDS endpoint
+        console.log(`[SdsAgent] Making direct HTTP call with OAuth token to ${SDS_SERVER_URL}`)
+
+        // Build the URL
         let url = `${SDS_SERVER_URL}/xrpc/${methodId}`
         if (params) {
           const searchParams = new URLSearchParams()
@@ -439,36 +448,97 @@ export class SdsAgent extends Agent {
           }
         }
 
-        console.log(`[SdsAgent] Making direct call to: ${url}`)
+        console.log(`[SdsAgent] Making authenticated call to: ${url}`)
 
-        // Make direct fetch call without forced authentication
-        const response = await fetch(url, {
-          method: data ? 'POST' : 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...opts?.headers,
-          },
-          body: data ? JSON.stringify(data) : undefined,
-        })
+        // Check if this is a POST method that needs manual authentication (like grantAccess)
+        // GET requests and some endpoints work fine with dpopFetch
+        const needsManualAuth = data && methodId.includes('grantAccess')
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`[SdsAgent] SDS call failed: ${response.status} ${errorText}`)
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
-        }
+        if (needsManualAuth) {
+          console.log('[SdsAgent] Using manual authentication for POST endpoint...')
 
-        const responseData = await response.json()
-        console.log(`[SdsAgent] SDS call succeeded:`, responseData)
+          // Get the access token from the OAuth session
+          const tokenSet = await (this.oauthSession as any).getTokenSet('auto')
+          if (!tokenSet?.access_token) {
+            throw new Error('No access token available for cross-server request')
+          }
 
-        return {
-          success: response.ok,
-          headers: Object.fromEntries(response.headers.entries()),
-          data: responseData,
+          console.log('[SdsAgent] Token details:', {
+            token_type: tokenSet.token_type,
+            has_access_token: !!tokenSet.access_token,
+            aud: tokenSet.aud,
+            scope: tokenSet.scope
+          })
+
+          // Create Authorization header for cross-server DPoP request
+          const authHeader = `${tokenSet.token_type || 'DPoP'} ${tokenSet.access_token}`
+          console.log('[SdsAgent] Authorization header:', authHeader.slice(0, 50) + '...')
+
+          const requestOptions = {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json',
+              ...opts?.headers,
+            },
+            body: JSON.stringify(data),
+          }
+          console.log('[SdsAgent] Manual request options:', {
+            method: requestOptions.method,
+            headers: Object.keys(requestOptions.headers),
+            has_body: !!requestOptions.body
+          })
+
+          const response = await fetch(url, requestOptions)
+          console.log('[SdsAgent] Manual response status:', response.status)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`[SdsAgent] Manual authenticated call failed: ${response.status} ${errorText}`)
+            throw new Error(`HTTP ${response.status}: ${errorText}`)
+          }
+
+          const responseData = await response.json()
+          console.log(`[SdsAgent] Manual authenticated call succeeded:`, responseData)
+
+          return {
+            success: response.ok,
+            headers: Object.fromEntries(response.headers.entries()),
+            data: responseData,
+          }
+        } else {
+          console.log('[SdsAgent] Using dpopFetch for standard request...')
+
+          // Use dpopFetch for GET requests and endpoints that work fine
+          const response = await (this.oauthSession as any).dpopFetch(url, {
+            method: data ? 'POST' : 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...opts?.headers,
+            },
+            body: data ? JSON.stringify(data) : undefined,
+          })
+
+          console.log('[SdsAgent] dpopFetch response status:', response.status)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`[SdsAgent] dpopFetch call failed: ${response.status} ${errorText}`)
+            throw new Error(`HTTP ${response.status}: ${errorText}`)
+          }
+
+          const responseData = await response.json()
+          console.log(`[SdsAgent] dpopFetch call succeeded:`, responseData)
+
+          return {
+            success: response.ok,
+            headers: Object.fromEntries(response.headers.entries()),
+            data: responseData,
+          }
         }
       } catch (error) {
-        console.error(`[SdsAgent] Direct SDS call failed:`, error)
-        // Fallback to regular agent call if direct call fails
-        return await this.sdsAgent.call(methodId, params, data, opts)
+        console.error(`[SdsAgent] Direct authenticated call failed:`, error)
+        throw error
       }
     }
     // Route all other calls to the main PDS server

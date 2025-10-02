@@ -36,7 +36,11 @@ export function CollaborationDebug() {
                   <br />
                   &nbsp;&nbsp;User DID: {auth.session?.did?.slice(0, 20)}...
                   <br />
-                  &nbsp;&nbsp;Is Owner? {repo.did === auth.session?.did ? 'YES' : 'NO'}
+                  &nbsp;&nbsp;Repo DID: {repo.did.slice(0, 20)}...
+                  <br />
+                  &nbsp;&nbsp;Permissions: {JSON.stringify(repo.permissions)}
+                  <br />
+                  &nbsp;&nbsp;Is Owner? {repo.permissions?.owner ? 'YES' : 'NO'}
                 </li>
               ))}
             </ul>

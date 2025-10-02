@@ -174,6 +174,10 @@ export const SDS_LEXICONS: LexiconDoc[] = [
           admin: {
             type: 'boolean',
             description: 'Administrative permissions (manage collaborators, etc.).'
+          },
+          owner: {
+            type: 'boolean',
+            description: 'Ownership permissions (transfer repository, full control).'
           }
         }
       }

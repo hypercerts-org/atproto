@@ -43,6 +43,7 @@ export const createSdsContext = async (
       dids: baseContextOptions.authVerifier.dids,
     },
     permissionManager,
+    // Use default scope mapping for OAuth to SDS role validation
   )
 
   // Create SDS context with enhanced components

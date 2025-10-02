@@ -19,6 +19,7 @@ export function PermissionBadge({ permissions, size = 'medium', className = '' }
     }
 
     const colorStyles = {
+      'Owner': 'bg-red-100 text-red-800',
       'Admin': 'bg-purple-100 text-purple-800',
       'Read & Write': 'bg-green-100 text-green-800',
       'Read Only': 'bg-blue-100 text-blue-800',
@@ -70,6 +71,17 @@ export function DetailedPermissionBadges({ permissions, className = '' }: Detail
           }`}
         >
           Admin: {permissions.admin ? '✓' : '✗'}
+        </span>
+      )}
+      {permissions.owner !== undefined && (
+        <span
+          className={`rounded px-2 py-1 text-sm ${
+            permissions.owner
+              ? 'bg-red-100 text-red-700'
+              : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          Owner: {permissions.owner ? '✓' : '✗'}
         </span>
       )}
     </div>

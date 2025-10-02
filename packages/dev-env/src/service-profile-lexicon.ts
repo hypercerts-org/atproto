@@ -37,9 +37,9 @@ const LEXICONS: readonly LexiconDoc[] = [
         permissions: [
           {
             type: 'permission',
-            resource: 'rpc',
-            inheritAud: true,
-            lxm: ['com.sds.repo.grantAccess'],
+            resource: 'repo',
+            collection: ['com.sds.repo.collaborators'],
+            action: ['create'],
           },
         ],
       },
@@ -56,9 +56,9 @@ const LEXICONS: readonly LexiconDoc[] = [
         permissions: [
           {
             type: 'permission',
-            resource: 'rpc',
-            inheritAud: true,
-            lxm: ['com.sds.repo.revokeAccess'],
+            resource: 'repo',
+            collection: ['com.sds.repo.collaborators'],
+            action: ['delete'],
           },
         ],
       },

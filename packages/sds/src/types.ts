@@ -4,6 +4,7 @@ export interface RepositoryPermissions {
   read: boolean
   write: boolean
   admin?: boolean
+  owner?: boolean
 }
 
 export interface SharingConfig {

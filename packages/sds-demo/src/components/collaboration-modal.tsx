@@ -36,7 +36,7 @@ export function CollaborationModal({
   })
   const [selectedRole, setSelectedRole] = useState<'viewer' | 'contributor' | 'admin'>('viewer')
 
-  // Role definitions
+  // Role definitions for collaborators (owner role is handled separately)
   const roles = {
     viewer: {
       name: 'Viewer',

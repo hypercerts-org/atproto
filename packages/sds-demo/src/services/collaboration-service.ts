@@ -7,6 +7,7 @@ export interface RepositoryPermissions {
   read: boolean
   write: boolean
   admin?: boolean
+  owner?: boolean
 }
 
 export interface Collaborator {
@@ -186,6 +187,7 @@ export function formatCollaboratorName(collaborator: Collaborator): string {
  * Utility function to get permission level display text
  */
 export function getPermissionLevel(permissions: RepositoryPermissions): string {
+  if (permissions.owner) return 'Owner'
   if (permissions.admin) return 'Admin'
   if (permissions.write) return 'Read & Write'
   if (permissions.read) return 'Read Only'

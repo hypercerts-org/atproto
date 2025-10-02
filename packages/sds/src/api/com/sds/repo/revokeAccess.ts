@@ -1,14 +1,16 @@
 // SDS Revoke Access Endpoint - Allows repository owners to revoke access from collaborators
 import { AuthRequiredError, InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from '../../../../lexicon'
+import { ids } from '../../../../lexicon/lexicons'
 import { SdsAppContext } from '../../../../sds-context'
 import { SdsPermissionError } from '../../../../types'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.revokeAccess({
     auth: ctx.authVerifier.authorization({
-      authorize: () => {
-        // Basic authentication required
+      authorize: (permissions, authCtx) => {
+        // Use standard AT Protocol repository permissions - no RPC scope needed
+        // The repo:* scope from the user's PDS should be sufficient
       },
     }),
     rateLimit: [
@@ -31,11 +33,24 @@ export default function (server: Server, ctx: SdsAppContext) {
 
         const repoDid = account.did
 
+        // Validate OAuth scope for repository collaboration management using standard repo permissions
+        if (auth.credentials.type === 'oauth') {
+          auth.credentials.permissions.assertRepo({
+            collection: 'com.sds.repo.collaborators',
+            action: 'delete',
+          })
+        }
+
         // Check if the authenticated user has permission to revoke access
-        // Only repository owners can revoke access (for now)
-        if (repoDid !== revokedByDid) {
+        // Repository owners and users with admin permissions can revoke access
+        const isOwner = await ctx.permissionManager.isOwner(repoDid, revokedByDid)
+        const hasAdminAccess = await ctx.permissionManager.checkAccess(repoDid, revokedByDid, 'admin')
+
+        console.log(`[SDS] Revoke access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${revokedByDid}, Repo: ${repoDid}`)
+
+        if (!isOwner && !hasAdminAccess) {
           throw new AuthRequiredError(
-            'Only repository owners can revoke access from collaborators',
+            'Only repository owners and admin users can revoke access from collaborators',
           )
         }
 
