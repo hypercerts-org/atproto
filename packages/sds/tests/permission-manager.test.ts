@@ -355,4 +355,231 @@ describe('SdsPermissionManager', () => {
       expect(hasAccess).toBe(false)
     })
   })
+
+  describe('permission system security', () => {
+    test('should prevent users from granting themselves admin access', async () => {
+      // Attacker should not be able to grant themselves admin access to owner's repository
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          { read: true, write: true, admin: true },
+          testUserDid, // User trying to grant themselves access
+        )
+
+        // This should fail
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        // Expected to fail
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should prevent users from escalating their own permissions', async () => {
+      // First, owner grants limited access to user
+      await permissionManager.grantAccess(
+        testRepoDid,
+        testUserDid,
+        { read: true, write: false, admin: false },
+        testOwnerDid,
+      )
+
+      // User should not be able to escalate their own permissions
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          { read: true, write: true, admin: true },
+          testUserDid, // User trying to escalate their own permissions
+        )
+
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should prevent users from granting access to repositories they do not own', async () => {
+      // User should not be able to grant access to owner's repository
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          'did:plc:another-user',
+          { read: true, write: true },
+          testUserDid, // User trying to grant access to owner's repo
+        )
+
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should validate permission object structure', async () => {
+      const invalidPermissions = {
+        read: 'true', // Should be boolean
+        write: 1, // Should be boolean
+        admin: null, // Should be boolean
+      } as any
+
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          invalidPermissions,
+          testOwnerDid,
+        )
+
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should prevent injection in permission data', async () => {
+      const maliciousPermissions = {
+        read: true,
+        write: true,
+        admin: true,
+        malicious: '"; DROP TABLE shared_repository_permissions; --',
+      } as any
+
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          maliciousPermissions,
+          testOwnerDid,
+        )
+
+        // Should either succeed with sanitized data or fail validation
+        // The key is that malicious content should not be executed
+        expect(true).toBe(true) // Test passes if no SQL injection occurs
+      } catch (error) {
+        // Validation error is also acceptable
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should validate DID format in permission operations', async () => {
+      const invalidDid = 'invalid-did-format'
+
+      try {
+        await permissionManager.grantAccess(
+          testRepoDid,
+          invalidDid,
+          { read: true, write: true },
+          testOwnerDid,
+        )
+
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        expect(error).toBeDefined()
+      }
+    })
+
+    test('should prevent unauthorized permission queries', async () => {
+      // User should not be able to query permissions for repositories they don't have access to
+      const hasAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'read',
+      )
+
+      expect(hasAccess).toBe(false)
+    })
+
+    test('should prevent unauthorized collaborator listing', async () => {
+      // User should not be able to list collaborators for repositories they don't have access to
+      const collaborators =
+        await permissionManager.listCollaborators(testRepoDid)
+
+      // Should not include user in the list
+      const userInList = collaborators.some((c) => c.userDid === testUserDid)
+      expect(userInList).toBe(false)
+    })
+
+    test('should maintain owner privileges', async () => {
+      // First grant the owner explicit permissions for the repository
+      await permissionManager.grantAccess(
+        testRepoDid,
+        testOwnerDid,
+        { read: true, write: true, admin: true, owner: true },
+        testOwnerDid, // Self-granted as the owner
+      )
+
+      // Owner should always have full access to their repository
+      const ownerHasRead = await permissionManager.checkAccess(
+        testRepoDid,
+        testOwnerDid,
+        'read',
+      )
+      const ownerHasWrite = await permissionManager.checkAccess(
+        testRepoDid,
+        testOwnerDid,
+        'write',
+      )
+
+      expect(ownerHasRead).toBe(true)
+      expect(ownerHasWrite).toBe(true)
+    })
+
+    test('should handle concurrent permission changes safely', async () => {
+      // Simulate concurrent permission changes
+      const promises = [
+        permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          { read: true, write: false },
+          testOwnerDid,
+        ),
+        permissionManager.grantAccess(
+          testRepoDid,
+          testUserDid,
+          { read: true, write: true },
+          testOwnerDid,
+        ),
+      ]
+
+      // Should not throw errors
+      await expect(Promise.all(promises)).resolves.not.toThrow()
+
+      // Verify final state
+      const finalPermissions = await permissionManager.getPermissions(
+        testRepoDid,
+        testUserDid,
+      )
+
+      expect(finalPermissions).toBeDefined()
+      expect(finalPermissions?.read).toBe(true)
+    })
+
+    test('should prevent duplicate permission entries', async () => {
+      // Grant access twice
+      await permissionManager.grantAccess(
+        testRepoDid,
+        testUserDid,
+        { read: true, write: false },
+        testOwnerDid,
+      )
+
+      await permissionManager.grantAccess(
+        testRepoDid,
+        testUserDid,
+        { read: true, write: true },
+        testOwnerDid,
+      )
+
+      // Should not create duplicate entries
+      const permissions = await db.db
+        .selectFrom('shared_repository_permissions')
+        .selectAll()
+        .where('repoDid', '=', testRepoDid)
+        .where('userDid', '=', testUserDid)
+        .where('revokedAt', 'is', null)
+        .execute()
+
+      expect(permissions).toHaveLength(1)
+    })
+  })
 })

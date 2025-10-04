@@ -20,9 +20,15 @@ export class SdsPermissionManager {
     action: keyof RepositoryPermissions,
   ): Promise<boolean> {
     try {
-      // Repository DIDs are different from user DIDs - check for explicit owner permission
-      const permissions = await this.getPermissions(repoDid, userDid)
+      // First check if the user is the owner of the repository
+      const isOwner = await this.isOwner(repoDid, userDid)
+      if (isOwner) {
+        // Owners always have full access to their repositories
+        return true
+      }
 
+      // If not owner, check for explicit permissions
+      const permissions = await this.getPermissions(repoDid, userDid)
       if (!permissions) return false
 
       return permissions[action] ?? false

@@ -203,4 +203,165 @@ describe('SDS Auth Integration', () => {
       expect(hasAccessAfterRevoke).toBe(false)
     })
   })
+
+  describe('authentication security', () => {
+    test('should reject forged JWT tokens', async () => {
+      // This test demonstrates that forged JWT tokens should be rejected
+      const forgedToken = createForgedJwtToken(testUserDid)
+
+      // Mock the token extraction and validation
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${forgedToken}`,
+        },
+      } as any
+
+      // The auth verifier should reject forged tokens
+      // This is a critical vulnerability if it doesn't
+      try {
+        const result = await sdsAuthVerifier.oauth()({ req: mockReq } as any)
+        // If this succeeds, it's a critical vulnerability
+        expect(result).toBeUndefined()
+      } catch (error) {
+        // Expected to fail with authentication error
+        expect(
+          (error as Error).message.includes('auth') ||
+            (error as Error).message.includes('token'),
+        ).toBe(true)
+      }
+    })
+
+    test('should reject tokens without proper signature', async () => {
+      const noSignatureToken = createNoSignatureToken(testUserDid)
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${noSignatureToken}`,
+        },
+      } as any
+
+      try {
+        const result = await sdsAuthVerifier.oauth()({ req: mockReq } as any)
+        expect(result).toBeUndefined()
+      } catch (error) {
+        expect(
+          (error as Error).message.includes('auth') ||
+            (error as Error).message.includes('signature'),
+        ).toBe(true)
+      }
+    })
+
+    test('should reject malicious cross-server tokens', async () => {
+      const maliciousToken = createMaliciousToken(
+        testUserDid,
+        'malicious-issuer.com',
+      )
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${maliciousToken}`,
+        },
+      } as any
+
+      try {
+        const result = await sdsAuthVerifier.oauth()({ req: mockReq } as any)
+        expect(result).toBeUndefined()
+      } catch (error) {
+        expect(
+          (error as Error).message.includes('auth') ||
+            (error as Error).message.includes('issuer'),
+        ).toBe(true)
+      }
+    })
+
+    test('should validate OAuth scopes properly', async () => {
+      const limitedScopeToken = createLimitedScopeToken(testUserDid, ['read'])
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${limitedScopeToken}`,
+        },
+      } as any
+
+      try {
+        const result = await sdsAuthVerifier.oauth()({ req: mockReq } as any)
+        // Should not grant admin access with limited scope
+        if (result?.credentials?.permissions) {
+          expect(result.credentials.permissions.scopes).not.toContain('admin')
+        }
+      } catch (error) {
+        // Validation error is also acceptable
+        expect(error).toBeDefined()
+      }
+    })
+  })
 })
+
+// Helper functions to create test tokens
+function createForgedJwtToken(did: string): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'none', typ: 'JWT' }),
+  ).toString('base64url')
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: did,
+      iss: 'malicious-issuer.com',
+      aud: 'sds-server',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      scope: ['repo:*', 'atproto'],
+    }),
+  ).toString('base64url')
+
+  return `${header}.${payload}.forged-signature`
+}
+
+function createNoSignatureToken(did: string): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'none', typ: 'JWT' }),
+  ).toString('base64url')
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: did,
+      iss: 'pds-server',
+      aud: 'sds-server',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      scope: ['repo:*', 'atproto'],
+    }),
+  ).toString('base64url')
+
+  return `${header}.${payload}` // No signature
+}
+
+function createMaliciousToken(did: string, issuer: string): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'none', typ: 'JWT' }),
+  ).toString('base64url')
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: did,
+      iss: issuer,
+      aud: 'sds-server',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      scope: ['repo:*', 'atproto'],
+    }),
+  ).toString('base64url')
+
+  return `${header}.${payload}.malicious-signature`
+}
+
+function createLimitedScopeToken(did: string, scopes: string[]): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'none', typ: 'JWT' }),
+  ).toString('base64url')
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: did,
+      iss: 'pds-server',
+      aud: 'sds-server',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      scope: scopes,
+    }),
+  ).toString('base64url')
+
+  return `${header}.${payload}.limited-signature`
+}
