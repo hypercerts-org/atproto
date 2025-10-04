@@ -3,6 +3,7 @@ import * as bsync from '@atproto/bsync'
 import { ExportableKeypair, Keypair } from '@atproto/crypto'
 import * as ozone from '@atproto/ozone'
 import * as pds from '@atproto/pds'
+import * as sds from '@atproto/sds'
 
 export type IntrospectConfig = {
   port?: number
@@ -18,7 +19,7 @@ export type PdsConfig = Partial<pds.ServerEnvironment> & {
   migration?: string
 }
 
-export type SdsConfig = Partial<pds.ServerEnvironment> & {
+export type SdsConfig = Partial<sds.ServerEnvironment> & {
   didPlcUrl: string
   migration?: string
 }

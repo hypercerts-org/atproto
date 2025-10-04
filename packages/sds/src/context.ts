@@ -19,6 +19,8 @@ import {
   OAuthProvider,
   OAuthVerifier,
 } from '@atproto/oauth-provider'
+import { CrossServerOAuthVerifier } from './oauth/cross-server-verifier'
+import { OAuthConfigManager } from './oauth/oauth-config'
 import { BlobStore } from '@atproto/repo'
 import {
   createServiceAuthHeaders,
@@ -76,6 +78,8 @@ export type AppContextOptions = {
   safeFetch: Fetch
   oauthProvider?: OAuthProvider
   authVerifier: AuthVerifier
+  oauthConfigManager: OAuthConfigManager
+  crossServerVerifier: CrossServerOAuthVerifier
   plcRotationKey: crypto.Keypair
   cfg: ServerConfig
 }
@@ -103,6 +107,8 @@ export class AppContext {
   public safeFetch: Fetch
   public authVerifier: AuthVerifier
   public oauthProvider?: OAuthProvider
+  public oauthConfigManager: OAuthConfigManager
+  public crossServerVerifier: CrossServerOAuthVerifier
   public plcRotationKey: crypto.Keypair
   public cfg: ServerConfig
 
@@ -129,6 +135,8 @@ export class AppContext {
     this.safeFetch = opts.safeFetch
     this.authVerifier = opts.authVerifier
     this.oauthProvider = opts.oauthProvider
+    this.oauthConfigManager = opts.oauthConfigManager
+    this.crossServerVerifier = opts.crossServerVerifier
     this.plcRotationKey = opts.plcRotationKey
     this.cfg = opts.cfg
   }
@@ -410,14 +418,25 @@ export class AppContext {
         })
       : undefined
 
+    // Create OAuth configuration manager
+    const oauthConfigManager = new OAuthConfigManager({
+      trustedIssuers: cfg.oauth.trustedIssuersConfig || [],
+      resourceServerMetadata: {
+        scopes: ['atproto', 'sds:read', 'sds:write', 'sds:admin'],
+        documentation: 'https://atproto.com/specs/sds',
+      },
+    })
+
+    // Create cross-server OAuth verifier
+    const crossServerVerifier = new CrossServerOAuthVerifier({
+      trustedIssuers: cfg.oauth.trustedIssuersConfig || [],
+      dpopSecret: secrets.dpopSecret,
+      redis: redisScratch,
+    })
+
     const oauthVerifier: OAuthVerifier =
       oauthProvider ?? // OAuthProvider extends OAuthVerifier
-      new OAuthVerifier({
-        issuer: cfg.oauth.issuer,
-        keyset: [await JoseKey.fromKeyLike(jwtPublicKey!, undefined, 'ES256K')],
-        dpopSecret: secrets.dpopSecret,
-        redis: redisScratch,
-      })
+      crossServerVerifier // Use cross-server verifier
 
     const authVerifier = new AuthVerifier(
       accountManager,
@@ -458,6 +477,8 @@ export class AppContext {
       safeFetch,
       authVerifier,
       oauthProvider,
+      oauthConfigManager,
+      crossServerVerifier,
       plcRotationKey,
       cfg,
       ...(overrides ?? {}),

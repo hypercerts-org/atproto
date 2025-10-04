@@ -25,6 +25,7 @@ export const readEnv = (): ServerEnvironment => {
 
     // OAuth
     trustedOAuthClients: envList('PDS_OAUTH_TRUSTED_CLIENTS'),
+    trustedOAuthIssuersConfig: envStr('SDS_TRUSTED_OAUTH_ISSUERS_CONFIG'),
 
     // branding
     lightColor: envStr('PDS_LIGHT_COLOR'),
@@ -175,6 +176,7 @@ export type ServerEnvironment = {
   hcaptchaSecretKey?: string
   hcaptchaTokenSalt?: string
   trustedOAuthClients?: string[]
+  trustedOAuthIssuersConfig?: string
 
   // branding
   lightColor?: string

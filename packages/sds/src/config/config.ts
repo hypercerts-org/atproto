@@ -8,7 +8,8 @@ import { ServerEnvironment } from './env'
 // logging: LOG_LEVEL, LOG_SYSTEMS, LOG_ENABLED, LOG_DESTINATION
 
 export const envToCfg = (env: ServerEnvironment): ServerConfig => {
-  const port = env.port ?? 2583
+  // SDS server should run on port 2585 by default to avoid conflict with PDS (2583)
+  const port = env.port ?? 2585
   const hostname = env.hostname ?? 'localhost'
   const publicUrl =
     hostname === 'localhost'
@@ -256,9 +257,18 @@ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
     ? {
         issuer: entrywayCfg.url,
         provider: undefined,
+        trustedIssuersConfig: env.trustedOAuthIssuersConfig
+          ? JSON.parse(env.trustedOAuthIssuersConfig)
+          : [],
       }
     : {
-        issuer: serviceCfg.publicUrl,
+        // In development mode, use the PDS server as the OAuth issuer for cross-server authentication
+        issuer: env.devMode
+          ? 'http://localhost:2583' // PDS server OAuth issuer
+          : serviceCfg.publicUrl, // Production: use own issuer
+        trustedIssuersConfig: env.trustedOAuthIssuersConfig
+          ? JSON.parse(env.trustedOAuthIssuersConfig)
+          : [],
         provider: {
           hcaptcha:
             env.hcaptchaSiteKey &&
@@ -464,6 +474,15 @@ export type OAuthConfig = {
     branding: BrandingInput
     trustedClients?: string[]
   }
+  trustedIssuersConfig?: Array<{
+    issuer: string
+    jwks: any
+    metadata?: {
+      name?: string
+      description?: string
+      contact?: string
+    }
+  }>
 }
 
 export type LexiconResolverConfig = {

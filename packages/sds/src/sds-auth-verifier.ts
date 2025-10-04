@@ -182,6 +182,11 @@ export class SdsAuthVerifier extends AuthVerifier {
 
       // Validate issuer is trusted BEFORE signature verification
       if (!this.isTrustedIssuer(unverified.iss)) {
+        console.error(
+          '[SdsAuthVerifier] Untrusted token issuer:',
+          unverified.iss,
+        )
+        console.error('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
         throw new AuthRequiredError('Untrusted token issuer')
       }
 
@@ -196,6 +201,8 @@ export class SdsAuthVerifier extends AuthVerifier {
 
       // Validate audience
       if (!this.isValidAudience(decoded.aud)) {
+        console.error('[SdsAuthVerifier] Invalid token audience:', decoded.aud)
+        console.error('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
         throw new AuthRequiredError('Invalid token audience')
       }
 
@@ -249,16 +256,25 @@ export class SdsAuthVerifier extends AuthVerifier {
       process.env.NODE_ENV === 'development' ||
       process.env.NODE_ENV === 'test'
     ) {
-      if (issuer.startsWith('http://localhost:') && issuer.includes('pds')) {
+      // Trust any localhost server in development
+      if (issuer.startsWith('http://localhost:')) {
+        console.log('[SdsAuthVerifier] Trusting localhost issuer:', issuer)
         return true
       }
-      // Also trust any localhost server in development
-      if (issuer.startsWith('http://localhost:')) {
+      // Also trust localhost with different patterns
+      if (issuer.startsWith('http://127.0.0.1:')) {
+        console.log('[SdsAuthVerifier] Trusting 127.0.0.1 issuer:', issuer)
         return true
       }
     }
 
-    return trustedIssuers.includes(issuer)
+    const isTrusted = trustedIssuers.includes(issuer)
+    if (!isTrusted) {
+      console.log('[SdsAuthVerifier] Issuer not in trusted list:', issuer)
+      console.log('[SdsAuthVerifier] Trusted issuers:', trustedIssuers)
+      console.log('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
+    }
+    return isTrusted
   }
 
   /**
@@ -280,16 +296,27 @@ export class SdsAuthVerifier extends AuthVerifier {
       process.env.NODE_ENV === 'development' ||
       process.env.NODE_ENV === 'test'
     ) {
-      return aud.some(
+      const isValid = aud.some(
         (a) =>
           allowedAudiences.includes(a) ||
           a.startsWith('http://localhost:') ||
           a === 'sds' ||
           a === 'pds',
       )
+      if (!isValid) {
+        console.log('[SdsAuthVerifier] Invalid audience in development:', aud)
+        console.log('[SdsAuthVerifier] Allowed audiences:', allowedAudiences)
+        console.log('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
+      }
+      return isValid
     }
 
-    return aud.some((a) => allowedAudiences.includes(a))
+    const isValid = aud.some((a) => allowedAudiences.includes(a))
+    if (!isValid) {
+      console.log('[SdsAuthVerifier] Invalid audience:', aud)
+      console.log('[SdsAuthVerifier] Allowed audiences:', allowedAudiences)
+    }
+    return isValid
   }
 
   /**
