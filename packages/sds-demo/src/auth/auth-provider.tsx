@@ -1,16 +1,16 @@
 'use client'
 
 import { ReactNode, createContext, useContext, useMemo } from 'react'
-import { OAuthSession } from '@atproto/oauth-client'
 import { Agent } from '@atproto/api'
+import { OAuthSession } from '@atproto/oauth-client'
 import { SdsAgent } from '../lib/sds-agent.ts'
 import { OAuthSignIn, UseOAuthOptions, useOAuth } from './use-oauth.ts'
 
 export type AuthContextValueSignedIn = {
   signedIn: true
   session: OAuthSession
-  agent: SdsAgent  // This handles routing to both PDS and SDS
-  pdsAgent: Agent  // Direct access to PDS agent if needed
+  agent: SdsAgent // This handles routing to both PDS and SDS
+  pdsAgent: Agent // Direct access to PDS agent if needed
   signIn?: OAuthSignIn
   signUpUrl?: undefined
   signOut: () => void
@@ -52,13 +52,14 @@ export const AuthProvider = ({
 
   const signedInValue = useMemo<AuthContextValueSignedIn | null>(() => {
     if (!session) return null
-    const pdsAgent = new Agent(session)
-    const sdsAgent = new SdsAgent(session)
+    // Create only ONE agent to avoid DPoP nonce conflicts
+    // SdsAgent extends Agent and handles both PDS and SDS calls
+    const agent = new SdsAgent(session)
     return {
       signedIn: true,
       session,
-      agent: sdsAgent,  // Primary agent with smart routing
-      pdsAgent,         // Direct PDS access if needed
+      agent, // Handles both PDS and SDS calls
+      pdsAgent: agent, // Same instance for backward compatibility
       signOut: () => session.signOut(),
       refresh: () => session.getTokenInfo(true),
     }

@@ -1,14 +1,16 @@
 // Debug component to help troubleshoot collaboration features
-import { useRepositoryContext } from '../contexts/repository-context.tsx'
 import { useAuthContext } from '../auth/auth-provider.tsx'
+import { useRepositoryContext } from '../contexts/repository-context.tsx'
 
 export function CollaborationDebug() {
   const { repositories, selectedRepo } = useRepositoryContext()
   const auth = useAuthContext()
 
   return (
-    <div className="rounded-lg bg-yellow-50 p-4 border border-yellow-200">
-      <h3 className="font-semibold text-yellow-800 mb-2">🔍 Collaboration Debug Info</h3>
+    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+      <h3 className="mb-2 font-semibold text-yellow-800">
+        🔍 Collaboration Debug Info
+      </h3>
 
       <div className="space-y-2 text-sm">
         <div>
@@ -32,7 +34,9 @@ export function CollaborationDebug() {
                   • {repo.handle} (DID: {repo.did.slice(0, 20)}...)
                   <br />
                   &nbsp;&nbsp;Access: {repo.accessType}
-                  {repo.accessType === 'owner' && <span className="text-green-600"> - Can manage</span>}
+                  {repo.accessType === 'owner' && (
+                    <span className="text-green-600"> - Can manage</span>
+                  )}
                   <br />
                   &nbsp;&nbsp;User DID: {auth.session?.did?.slice(0, 20)}...
                   <br />
@@ -41,6 +45,11 @@ export function CollaborationDebug() {
                   &nbsp;&nbsp;Permissions: {JSON.stringify(repo.permissions)}
                   <br />
                   &nbsp;&nbsp;Is Owner? {repo.permissions?.owner ? 'YES' : 'NO'}
+                  <br />
+                  &nbsp;&nbsp;
+                  <small className="text-gray-500">
+                    (SDS validates JWT via JWKS, authorizes via DB)
+                  </small>
                 </li>
               ))}
             </ul>

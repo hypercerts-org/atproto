@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { FormEvent, JSX, useEffect, useRef, useState } from 'react'
 import { Button } from '../components/button.tsx'
+import { ENV } from '../constants.ts'
 import { OAuthSignIn } from './use-oauth.ts'
 
 export type OAuthLoginHandleProps = JSX.IntrinsicElements['form'] & {
@@ -34,7 +35,26 @@ export function OAuthLoginForm({
 
       if (!formRef.current?.reportValidity()) return
 
-      return signIn(value.replace('@', '').toLowerCase())
+      const input = value.replace('@', '').toLowerCase()
+
+      // Warn if using production handle in dev mode
+      if (
+        ENV === 'development' &&
+        (input.endsWith('.bsky.social') ||
+          (!input.includes('.') &&
+            !input.startsWith('http') &&
+            !input.startsWith('did:')))
+      ) {
+        console.warn(
+          '[SDS Demo] ⚠️  You appear to be using a production handle in development mode.',
+        )
+        console.warn(
+          '[SDS Demo] For local testing, please create an account at http://localhost:2583',
+        )
+        console.warn('[SDS Demo] and use a .test handle (e.g., alice.test)')
+      }
+
+      return signIn(input)
     },
   })
 

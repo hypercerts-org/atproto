@@ -47,7 +47,6 @@ export function useGetPermissionsQuery(repoDid: string) {
   })
 }
 
-
 // List organizations for the current user
 export function useListOrganizationsQuery() {
   const auth = useAuthContext()
@@ -55,7 +54,8 @@ export function useListOrganizationsQuery() {
   return useQuery({
     queryKey: ['sds', 'organizations'],
     queryFn: async (): Promise<any[]> => {
-      if (!auth.signedIn || !auth.session?.did || !auth.agent) throw new Error('No authenticated user or agent')
+      if (!auth.signedIn || !auth.session?.did || !auth.agent)
+        throw new Error('No authenticated user or agent')
 
       try {
         // Use the SDS agent to make the call with proper lexicon routing
@@ -72,6 +72,9 @@ export function useListOrganizationsQuery() {
       }
     },
     enabled: auth.signedIn && !!auth.session?.did && !!auth.agent,
+    // Add retry with exponential backoff to handle transient errors during OAuth flow
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 }
 

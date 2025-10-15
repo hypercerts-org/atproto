@@ -5,7 +5,7 @@ import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.getPermissions({
-    auth: ctx.authVerifier.unauthenticated,
+    auth: ctx.authVerifier.oauth(),
     rateLimit: [
       {
         name: 'sds-permission-read-unauth',

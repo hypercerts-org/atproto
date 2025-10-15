@@ -9,18 +9,8 @@ import { AtpAgent } from '@atproto/api'
 import { KmsKeypair, S3BlobStore } from '@atproto/aws'
 import * as crypto from '@atproto/crypto'
 import { IdResolver } from '@atproto/identity'
-import {
-  LexiconResolver,
-  buildLexiconResolver,
-} from '@atproto/lexicon-resolver'
-import {
-  AccessTokenMode,
-  JoseKey,
-  OAuthProvider,
-  OAuthVerifier,
-} from '@atproto/oauth-provider'
-import { CrossServerOAuthVerifier } from './oauth/cross-server-verifier'
-import { OAuthConfigManager } from './oauth/oauth-config'
+// Lexicon resolver imports removed - no longer needed without OAuth Provider
+import { Keyset, OAuthVerifier } from '@atproto/oauth-provider'
 import { BlobStore } from '@atproto/repo'
 import {
   createServiceAuthHeaders,
@@ -33,7 +23,6 @@ import {
   unicastLookup,
 } from '@atproto-labs/fetch-node'
 import { AccountManager } from './account-manager/account-manager'
-import { OAuthStore } from './account-manager/oauth-store'
 import { ActorStore } from './actor-store/actor-store'
 import { authPassthru, forwardedFor } from './api/proxy'
 import {
@@ -48,7 +37,7 @@ import { Crawlers } from './crawlers'
 import { DidSqliteCache } from './did-cache'
 import { DiskBlobStore } from './disk-blobstore'
 import { ImageUrlBuilder } from './image/image-url-builder'
-import { fetchLogger, lexiconResolverLogger } from './logger'
+import { fetchLogger } from './logger'
 import { ServerMailer } from './mailer'
 import { ModerationMailer } from './mailer/moderation'
 import { LocalViewer, LocalViewerCreator } from './read-after-write/viewer'
@@ -76,10 +65,7 @@ export type AppContextOptions = {
   entrywayAdminAgent?: AtpAgent
   proxyAgent: undici.Dispatcher
   safeFetch: Fetch
-  oauthProvider?: OAuthProvider
   authVerifier: AuthVerifier
-  oauthConfigManager: OAuthConfigManager
-  crossServerVerifier: CrossServerOAuthVerifier
   plcRotationKey: crypto.Keypair
   cfg: ServerConfig
 }
@@ -106,9 +92,6 @@ export class AppContext {
   public proxyAgent: undici.Dispatcher
   public safeFetch: Fetch
   public authVerifier: AuthVerifier
-  public oauthProvider?: OAuthProvider
-  public oauthConfigManager: OAuthConfigManager
-  public crossServerVerifier: CrossServerOAuthVerifier
   public plcRotationKey: crypto.Keypair
   public cfg: ServerConfig
 
@@ -134,9 +117,6 @@ export class AppContext {
     this.proxyAgent = opts.proxyAgent
     this.safeFetch = opts.safeFetch
     this.authVerifier = opts.authVerifier
-    this.oauthProvider = opts.oauthProvider
-    this.oauthConfigManager = opts.oauthConfigManager
-    this.crossServerVerifier = opts.crossServerVerifier
     this.plcRotationKey = opts.plcRotationKey
     this.cfg = opts.cfg
   }
@@ -335,113 +315,25 @@ export class AppContext {
       },
     })
 
-    const baseLexiconResolver = buildLexiconResolver({
-      idResolver,
-      rpc: { fetch: safeFetch },
+    // Lexicon resolver and related functions removed (was only used by OAuth Provider)
+
+    // SDS is a Resource Server only - no OAuth Provider
+    // SDS validates DPoP proofs cryptographically but doesn't sign tokens itself
+    // Create a minimal keyset (no keys needed for DPoP proof validation)
+    const minimalKeyset = new Keyset([])
+
+    // Create OAuthVerifier for DPoP proof validation
+    // As a resource server, SDS doesn't need to manage DPoP nonces
+    const effectiveOauthVerifier = new OAuthVerifier({
+      issuer: cfg.service.publicUrl,
+      keyset: minimalKeyset,
+      // No redis or nonce management - resource server only validates proofs
     })
-
-    const getLexiconAuthority = (_nsid: string): string | undefined => {
-      // At the moment, only a single override strategy is supported by
-      // specifying a did through which all the lexicons will be resolved. We
-      // might need more granular control in the future (e.g. per-nsid
-      // overrides)
-      return cfg.lexicon.didAuthority
-    }
-
-    const lexiconResolver: LexiconResolver = async (input) => {
-      const nsid: string = String(input)
-      try {
-        const result = await baseLexiconResolver(input, {
-          didAuthority: getLexiconAuthority(nsid),
-          // Right now, the lexicon resolver is only used by the oauth-provider,
-          // which caches the responses internally (through the LexiconStore).
-          // Since the `LexiconResolver` does not allow specifying a
-          // `forceRefresh` option, we hard code it here. Should PDSs need to
-          // resolve lexicons for other purposes (e.g. record validation), we'd
-          // probably want to either implement caching as built into the
-          // lexiconResolver here, or allow the caller (oauth-provider, etc.) to
-          // specify a `forceRefresh` option by altering the LexiconResolver
-          // interface.
-          forceRefresh: true,
-        })
-
-        const cid = result.cid.toString()
-        const uri = result.uri.toString()
-        lexiconResolverLogger.info({ nsid, uri, cid }, 'Resolved lexicon')
-
-        return result
-      } catch (err) {
-        lexiconResolverLogger.error({ nsid, err }, 'Lexicon resolution failed')
-
-        throw err
-      }
-    }
-
-    const oauthProvider = cfg.oauth.provider
-      ? new OAuthProvider({
-          issuer: cfg.oauth.issuer,
-          keyset: [await JoseKey.fromKeyLike(jwtSecretKey, undefined, 'HS256')],
-          store: new OAuthStore(
-            accountManager,
-            actorStore,
-            imageUrlBuilder,
-            backgroundQueue,
-            mailer,
-            sequencer,
-            plcClient,
-            plcRotationKey,
-            cfg.service.publicUrl,
-            cfg.identity.recoveryDidKey,
-          ),
-          redis: redisScratch,
-          dpopSecret: secrets.dpopSecret,
-          inviteCodeRequired: cfg.invites.required,
-          availableUserDomains: cfg.identity.serviceHandleDomains,
-          hcaptcha: cfg.oauth.provider.hcaptcha,
-          branding: cfg.oauth.provider.branding,
-          safeFetch,
-          lexiconResolver,
-          metadata: {
-            protected_resources: [new URL(cfg.oauth.issuer).origin],
-          },
-          // If the PDS is both an authorization server & resource server (no
-          // entryway), there is no need to use JWTs as access tokens. Instead,
-          // the PDS can use tokenId as access tokens. This allows the PDS to
-          // always use up-to-date token data from the token store.
-          accessTokenMode: AccessTokenMode.light,
-
-          getClientInfo(clientId) {
-            return {
-              isTrusted: cfg.oauth.provider?.trustedClients?.includes(clientId),
-            }
-          },
-        })
-      : undefined
-
-    // Create OAuth configuration manager
-    const oauthConfigManager = new OAuthConfigManager({
-      trustedIssuers: cfg.oauth.trustedIssuersConfig || [],
-      resourceServerMetadata: {
-        scopes: ['atproto', 'sds:read', 'sds:write', 'sds:admin'],
-        documentation: 'https://atproto.com/specs/sds',
-      },
-    })
-
-    // Create cross-server OAuth verifier
-    const crossServerVerifier = new CrossServerOAuthVerifier({
-      trustedIssuers: cfg.oauth.trustedIssuersConfig || [],
-      dpopSecret: secrets.dpopSecret,
-      redis: redisScratch,
-    })
-
-    const oauthVerifier: OAuthVerifier =
-      oauthProvider ?? // OAuthProvider extends OAuthVerifier
-      crossServerVerifier // Use cross-server verifier
 
     const authVerifier = new AuthVerifier(
       accountManager,
       idResolver,
-      oauthVerifier,
+      effectiveOauthVerifier,
       {
         publicUrl: cfg.service.publicUrl,
         jwtKey: jwtPublicKey ?? jwtSecretKey,
@@ -476,9 +368,6 @@ export class AppContext {
       proxyAgent,
       safeFetch,
       authVerifier,
-      oauthProvider,
-      oauthConfigManager,
-      crossServerVerifier,
       plcRotationKey,
       cfg,
       ...(overrides ?? {}),

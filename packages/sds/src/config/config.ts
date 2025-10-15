@@ -1,7 +1,6 @@
 import assert from 'node:assert'
 import path from 'node:path'
 import { DAY, HOUR, SECOND } from '@atproto/common'
-import { BrandingInput, HcaptchaConfig } from '@atproto/oauth-provider'
 import { ServerEnvironment } from './env'
 
 // off-config but still from env:
@@ -253,81 +252,11 @@ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
     preferCompressed: env.proxyPreferCompressed ?? false,
   }
 
-  const oauthCfg: ServerConfig['oauth'] = entrywayCfg
-    ? {
-        issuer: entrywayCfg.url,
-        provider: undefined,
-        trustedIssuersConfig: env.trustedOAuthIssuersConfig
-          ? JSON.parse(env.trustedOAuthIssuersConfig)
-          : [],
-      }
-    : {
-        // In development mode, use the PDS server as the OAuth issuer for cross-server authentication
-        issuer: env.devMode
-          ? 'http://localhost:2583' // PDS server OAuth issuer
-          : serviceCfg.publicUrl, // Production: use own issuer
-        trustedIssuersConfig: env.trustedOAuthIssuersConfig
-          ? JSON.parse(env.trustedOAuthIssuersConfig)
-          : [],
-        provider: {
-          hcaptcha:
-            env.hcaptchaSiteKey &&
-            env.hcaptchaSecretKey &&
-            env.hcaptchaTokenSalt
-              ? {
-                  siteKey: env.hcaptchaSiteKey,
-                  secretKey: env.hcaptchaSecretKey,
-                  tokenSalt: env.hcaptchaTokenSalt,
-                }
-              : undefined,
-          branding: {
-            name: env.serviceName ?? `${hostname} PDS`,
-            logo: env.logoUrl,
-            colors: {
-              light: env.lightColor,
-              dark: env.darkColor,
-              primary: env.primaryColor,
-              primaryContrast: env.primaryColorContrast,
-              primaryHue: env.primaryColorHue,
-              error: env.errorColor,
-              errorContrast: env.errorColorContrast,
-              errorHue: env.errorColorHue,
-              success: env.successColor,
-              successContrast: env.successColorContrast,
-              successHue: env.successColorHue,
-              warning: env.warningColor,
-              warningContrast: env.warningColorContrast,
-              warningHue: env.warningColorHue,
-            },
-            links: [
-              {
-                title: { en: 'Home', fr: 'Accueil' },
-                href: env.homeUrl,
-                rel: 'canonical' as const, // Prevents login page from being indexed
-              },
-              {
-                title: { en: 'Terms of Service' },
-                href: env.termsOfServiceUrl,
-                rel: 'terms-of-service' as const,
-              },
-              {
-                title: { en: 'Privacy Policy' },
-                href: env.privacyPolicyUrl,
-                rel: 'privacy-policy' as const,
-              },
-              {
-                title: { en: 'Support' },
-                href: env.supportUrl,
-                rel: 'help' as const,
-              },
-            ].filter(
-              <T extends { href?: string }>(f: T): f is T & { href: string } =>
-                f.href != null && f.href !== '',
-            ),
-          },
-          trustedClients: env.trustedOAuthClients,
-        },
-      }
+  // SDS OAuth config - only issuer for self-identification
+  // SDS is a Resource Server only, not an OAuth Provider
+  const oauthCfg: ServerConfig['oauth'] = {
+    issuer: serviceCfg.publicUrl, // SDS issuer URL (for self-identification only)
+  }
 
   const lexiconCfg: LexiconResolverConfig = {
     didAuthority: env.lexiconDidAuthority,
@@ -468,21 +397,9 @@ export type ProxyConfig = {
 }
 
 export type OAuthConfig = {
+  // SDS issuer URL (for self-identification only)
+  // SDS is a Resource Server and does not act as an OAuth Provider
   issuer: string
-  provider?: {
-    hcaptcha?: HcaptchaConfig
-    branding: BrandingInput
-    trustedClients?: string[]
-  }
-  trustedIssuersConfig?: Array<{
-    issuer: string
-    jwks: any
-    metadata?: {
-      name?: string
-      description?: string
-      contact?: string
-    }
-  }>
 }
 
 export type LexiconResolverConfig = {

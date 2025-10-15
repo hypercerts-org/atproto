@@ -1,18 +1,12 @@
 import { Router } from 'express'
-import {
-  HandleUnavailableError,
-  InvalidRequestError,
-  SecondAuthenticationFactorRequiredError,
-  UseDpopNonceError,
-  oauthMiddleware,
-  oauthProtectedResourceMetadataSchema,
-} from '@atproto/oauth-provider'
+import { oauthProtectedResourceMetadataSchema } from '@atproto/oauth-provider'
 import { AppContext } from './context.js'
-import { oauthLogger, reqSerializer } from './logger.js'
 
-export const createRouter = ({ oauthProvider, cfg }: AppContext): Router => {
+export const createRouter = ({ cfg }: AppContext): Router => {
   const router = Router()
 
+  // SDS is an OAuth 2.0 Resource Server (not an Authorization Server)
+  // This metadata advertises that SDS accepts Bearer tokens from external PDS instances
   const oauthProtectedResourceMetadata =
     oauthProtectedResourceMetadataSchema.parse({
       resource: cfg.service.publicUrl,
@@ -36,29 +30,5 @@ export const createRouter = ({ oauthProvider, cfg }: AppContext): Router => {
     res.status(200).json(oauthProtectedResourceMetadata)
   })
 
-  if (oauthProvider) {
-    router.use(
-      oauthMiddleware(oauthProvider, {
-        onError: (req, res, err, msg) => {
-          if (!ignoreError(err)) {
-            oauthLogger.error({ err, req: reqSerializer(req) }, msg)
-          }
-        },
-      }),
-    )
-  }
-
   return router
-}
-
-function ignoreError(err: unknown): boolean {
-  if (err instanceof InvalidRequestError) {
-    return err.error_description === 'Invalid identifier or password'
-  }
-
-  return (
-    err instanceof UseDpopNonceError ||
-    err instanceof HandleUnavailableError ||
-    err instanceof SecondAuthenticationFactorRequiredError
-  )
 }

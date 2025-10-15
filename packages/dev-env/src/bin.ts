@@ -38,33 +38,13 @@ const run = async () => {
   mockMailer(network.pds)
   await generateMockSetup(network)
 
-  // Start SDS server for organization management with OAuth configuration
-  const trustedOAuthIssuersConfig = JSON.stringify([
-    {
-      issuer: 'http://localhost:2583', // PDS server OAuth issuer
-      jwks: {
-        keys: [
-          {
-            kty: 'EC',
-            crv: 'P-256',
-            x: 'test-x-pds',
-            y: 'test-y-pds',
-            kid: 'pds-key-1',
-          },
-        ],
-      },
-      metadata: {
-        name: 'Local PDS Server',
-        description: 'Development PDS server for OAuth token issuance',
-        contact: 'admin@localhost',
-      },
-    },
-  ])
+  // Start SDS server for organization management
+  // SDS acts as Resource Server only (no OAuth Provider)
+  // It validates tokens from any PDS using federated JWKS fetching
 
   const sds = await TestSds.create({
     port: 2585,
     didPlcUrl: network.plc.url,
-    trustedOAuthIssuersConfig,
   })
 
   if (network.introspect) {

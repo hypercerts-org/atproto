@@ -4,7 +4,7 @@ import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.organization.list({
-    auth: ctx.authVerifier.unauthenticated, // Allow unauthenticated for now, similar to create
+    auth: ctx.authVerifier.oauth(),
     handler: async ({ params }) => {
       const { userDid } = params
 
@@ -16,7 +16,8 @@ export default function (server: Server, ctx: SdsAppContext) {
 
       try {
         // Get list of repositories this user has access to
-        const repoDids = await ctx.permissionManager.listUserRepositories(userDid)
+        const repoDids =
+          await ctx.permissionManager.listUserRepositories(userDid)
 
         const organizations: any[] = []
 
@@ -24,7 +25,10 @@ export default function (server: Server, ctx: SdsAppContext) {
         for (const repoDid of repoDids) {
           try {
             const account = await ctx.accountManager.getAccount(repoDid)
-            const permissions = await ctx.permissionManager.getPermissions(repoDid, userDid)
+            const permissions = await ctx.permissionManager.getPermissions(
+              repoDid,
+              userDid,
+            )
 
             if (account && account.handle && permissions) {
               // This is a valid organization/repository
@@ -49,7 +53,9 @@ export default function (server: Server, ctx: SdsAppContext) {
           }
         }
 
-        console.log(`[SDS] Found ${organizations.length} organizations for user ${userDid}`)
+        console.log(
+          `[SDS] Found ${organizations.length} organizations for user ${userDid}`,
+        )
 
         return {
           encoding: 'application/json',

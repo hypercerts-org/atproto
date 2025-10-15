@@ -28,3 +28,6 @@ export * from './types.js'
 export * from './errors/token-invalid-error.js'
 export * from './errors/token-refresh-error.js'
 export * from './errors/token-revoked-error.js'
+
+export { dpopFetchWrapper } from './fetch-dpop.js'
+export type { DpopFetchWrapperOptions } from './fetch-dpop.js'

@@ -3,12 +3,11 @@ import { Secp256k1Keypair } from '@atproto/crypto'
 import { InvalidRequestError } from '@atproto/xrpc-server'
 import { AccountStatus } from '../../../../account-manager/helpers/account'
 import { Server } from '../../../../lexicon'
-import { prepareCreate } from '../../../../repo'
 import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.organization.create({
-    auth: ctx.authVerifier.unauthenticated,
+    auth: ctx.authVerifier.oauth(),
     rateLimit: [
       {
         name: 'org-create-hour',
@@ -28,7 +27,10 @@ export default function (server: Server, ctx: SdsAppContext) {
         throw new InvalidRequestError('Creator DID is required')
       }
 
-      console.log('[SDS] Organization create handler - creator DID:', creatorDid)
+      console.log(
+        '[SDS] Organization create handler - creator DID:',
+        creatorDid,
+      )
 
       if (!name?.trim()) {
         throw new InvalidRequestError('Organization name is required')

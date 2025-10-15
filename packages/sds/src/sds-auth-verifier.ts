@@ -1,7 +1,8 @@
 // SDS Auth Verifier - Extends PDS auth with multi-user permission checks
+import { createHash } from 'node:crypto'
+import * as jose from 'jose'
 import { IdResolver } from '@atproto/identity'
 import { OAuthVerifier } from '@atproto/oauth-provider'
-import { ScopePermissions } from '@atproto/oauth-scopes'
 import {
   AuthRequiredError,
   MethodAuthContext,
@@ -9,530 +10,260 @@ import {
 } from '@atproto/xrpc-server'
 import { AccountManager } from './account-manager/account-manager'
 import { AuthVerifier, AuthVerifierOpts } from './auth-verifier'
+import { SimpleTokenExtractor } from './oauth/simple-token-extractor'
 import { SdsPermissionManager } from './permission-manager'
 import { PermissionCheckContext, RepositoryPermissions } from './types'
+import { appendVary } from './util/http'
 
-// OAuth scope to SDS role mapping
-export interface ScopeMapping {
-  // OAuth scopes that allow different SDS roles
-  adminScopes: string[] // Can perform Admin actions
-  writeScopes: string[] // Can perform Contributor/write actions
-  readScopes: string[] // Can perform Viewer/read actions
-  ownerScopes: string[] // Can perform owner-level actions
-}
-
-export const DEFAULT_SCOPE_MAPPING: ScopeMapping = {
-  adminScopes: ['repo:admin', 'repo:*', 'atproto'],
-  writeScopes: ['repo:write', 'repo:admin', 'repo:*', 'atproto'],
-  readScopes: ['repo:read', 'repo:write', 'repo:admin', 'repo:*', 'atproto'],
-  ownerScopes: ['repo:*', 'atproto'],
-}
-
+/**
+ * SDS Auth Verifier extends the base PDS auth verifier with
+ * simple OAuth token extraction and SDS permission checking.
+ *
+ * Authentication: Extracts DID from OAuth tokens (minimal validation for PoC)
+ * Authorization: Checks SDS database permissions only (no OAuth scope validation)
+ */
 export class SdsAuthVerifier extends AuthVerifier {
+  private tokenExtractor: SimpleTokenExtractor
+  private publicUrl: string
+
   constructor(
     accountManager: AccountManager,
     idResolver: IdResolver,
     oauthVerifier: OAuthVerifier,
     opts: AuthVerifierOpts,
     private permissionManager: SdsPermissionManager,
-    private scopeMapping: ScopeMapping = DEFAULT_SCOPE_MAPPING,
   ) {
     super(accountManager, idResolver, oauthVerifier, opts)
-    console.log('[SDS Auth] SdsAuthVerifier instantiated successfully')
-    console.log('[SDS Auth] Permission manager available:', !!permissionManager)
-    console.log('[SDS Auth] Public URL:', opts.publicUrl)
-  }
-
-  // Override the oauth method to handle cross-server scenarios with proper security
-  oauth<P extends Params = Params>(options: any = {}): any {
-    // Create the original OAuth verifier
-    const originalOAuthVerifier = super.oauth<P>(options)
-
-    // Return a wrapped verifier that handles cross-server scenarios securely
-    return async (ctx: MethodAuthContext<P>) => {
-      console.log('[SDS Auth] OAuth verifier called for:', ctx.req.url)
-      console.log(
-        '[SDS Auth] Auth header present:',
-        !!ctx.req.headers.authorization,
-      )
-
-      try {
-        // Extract token from authorization header
-        const token = this.extractToken(ctx.req)
-        if (!token) {
-          console.log(
-            '[SDS Auth] No token found, falling back to standard OAuth...',
-          )
-          return await originalOAuthVerifier(ctx)
-        }
-
-        // Validate JWT token with proper signature verification
-        const decoded = await this.validateJwtToken(token, ctx.req)
-        if (!decoded?.sub) {
-          console.log(
-            '[SDS Auth] Invalid token format, falling back to standard OAuth...',
-          )
-          return await originalOAuthVerifier(ctx)
-        }
-
-        // SECURITY FIX: Remove sensitive information from logs
-        console.log('[SDS Auth] Cross-server auth successful')
-
-        // Validate scopes properly instead of being permissive
-        const validatedScopes = this.validateScopes(decoded.scope)
-        const permissions = {
-          scopes: new Set(validatedScopes),
-          allowsRepo: (did: string) =>
-            this.checkRepositoryAccess(did, decoded.sub, 'read'),
-          allowsIdentity: () => validatedScopes.includes('atproto'),
-          assertRepo: (did: string) => {
-            if (!this.checkRepositoryAccess(did, decoded.sub, 'read')) {
-              throw new AuthRequiredError('Insufficient repository access')
-            }
-          },
-          assertIdentity: () => {
-            if (!validatedScopes.includes('atproto')) {
-              throw new AuthRequiredError('Insufficient identity scope')
-            }
-          },
-          assertRpc: (params: any) => {
-            // Validate RPC permissions based on scopes
-            if (!this.validateRpcPermissions(params, validatedScopes)) {
-              throw new AuthRequiredError('Insufficient RPC permissions')
-            }
-          },
-        }
-
-        // Return OAuth output compatible with SDS endpoints
-        return {
-          credentials: {
-            type: 'oauth' as const,
-            did: decoded.sub,
-            permissions,
-          },
-        }
-      } catch (validationError: any) {
-        console.log(
-          '[SDS Auth] Token validation failed, trying standard OAuth...',
-          validationError.message,
-        )
-
-        try {
-          // Fall back to standard OAuth verification
-          return await originalOAuthVerifier(ctx)
-        } catch (standardError: any) {
-          console.error(
-            '[SDS Auth] Standard OAuth validation also failed:',
-            standardError.message,
-          )
-
-          // If both approaches fail, throw the most relevant error
-          if (validationError instanceof AuthRequiredError) {
-            throw validationError
-          }
-          throw standardError
-        }
-      }
-    }
-  }
-
-  private extractToken(req: any): string | null {
-    const authHeader = req.headers.authorization
-    // SECURITY FIX: Don't log sensitive authorization headers
-    console.log('[SDS Auth] Authorization header present:', !!authHeader)
-
-    if (!authHeader) return null
-
-    // Handle Bearer tokens
-    if (authHeader.startsWith('Bearer ')) {
-      console.log('[SDS Auth] Extracting Bearer token')
-      return authHeader.slice(7)
-    }
-
-    console.log('[SDS Auth] Unknown authorization header format')
-    return null
-  }
-
-  private decodeTokenBasic(token: string): any {
-    try {
-      // Simple JWT decode without verification (for audience extraction)
-      const parts = token.split('.')
-      if (parts.length !== 3) return null
-      return JSON.parse(Buffer.from(parts[1], 'base64url').toString())
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * Validate JWT token with proper signature verification
-   */
-  private async validateJwtToken(token: string, _req: any): Promise<any> {
-    try {
-      // Basic token format validation
-      if (!this.isValidJwtFormat(token)) {
-        throw new AuthRequiredError('Invalid token format')
-      }
-
-      // Get issuer from unverified token to determine which key to use
-      const unverified = this.decodeTokenBasic(token)
-      if (!unverified?.iss) {
-        throw new AuthRequiredError('Token missing issuer')
-      }
-
-      // Validate issuer is trusted BEFORE signature verification
-      if (!this.isTrustedIssuer(unverified.iss)) {
-        console.error(
-          '[SdsAuthVerifier] Untrusted token issuer:',
-          unverified.iss,
-        )
-        console.error('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
-        throw new AuthRequiredError('Untrusted token issuer')
-      }
-
-      // For now, we'll do basic validation without full signature verification
-      // TODO: Implement proper JWT signature verification with issuer's public key
-      const decoded = unverified
-
-      // Validate required claims
-      if (!decoded.sub || !decoded.aud) {
-        throw new AuthRequiredError('Missing required token claims')
-      }
-
-      // Validate audience
-      if (!this.isValidAudience(decoded.aud)) {
-        console.error('[SdsAuthVerifier] Invalid token audience:', decoded.aud)
-        console.error('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
-        throw new AuthRequiredError('Invalid token audience')
-      }
-
-      // Validate expiration
-      if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
-        throw new AuthRequiredError('Token has expired')
-      }
-
-      return decoded
-    } catch (error) {
-      if (error instanceof AuthRequiredError) {
-        throw error
-      }
-      throw new AuthRequiredError('Token validation failed')
-    }
-  }
-
-  /**
-   * Validate JWT token format with security checks
-   */
-  private isValidJwtFormat(token: string): boolean {
-    // SECURITY FIX: Add input validation
-    if (!token || typeof token !== 'string') return false
-    if (token.length > 8192) return false // Prevent extremely long tokens
-
-    const parts = token.split('.')
-    if (parts.length !== 3) return false
-
-    // Validate each part
-    return parts.every((part) => {
-      if (!part || part.length === 0) return false
-      if (part.length > 4096) return false // Prevent extremely long parts
-      return true
-    })
-  }
-
-  /**
-   * Check if issuer is trusted - SECURITY FIX: Use exact matching instead of string matching
-   */
-  private isTrustedIssuer(issuer: string): boolean {
-    // SECURITY FIX: Use exact matching instead of string matching to prevent subdomain attacks
-    const trustedIssuers = [
-      'https://bsky.social',
-      'https://pds.bsky.app',
-      'pds-server', // For testing
-      'sds-server', // For testing
-    ]
-
-    // In development mode, also trust localhost PDS servers
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'test'
-    ) {
-      // Trust any localhost server in development
-      if (issuer.startsWith('http://localhost:')) {
-        console.log('[SdsAuthVerifier] Trusting localhost issuer:', issuer)
-        return true
-      }
-      // Also trust localhost with different patterns
-      if (issuer.startsWith('http://127.0.0.1:')) {
-        console.log('[SdsAuthVerifier] Trusting 127.0.0.1 issuer:', issuer)
-        return true
-      }
-    }
-
-    const isTrusted = trustedIssuers.includes(issuer)
-    if (!isTrusted) {
-      console.log('[SdsAuthVerifier] Issuer not in trusted list:', issuer)
-      console.log('[SdsAuthVerifier] Trusted issuers:', trustedIssuers)
-      console.log('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
-    }
-    return isTrusted
-  }
-
-  /**
-   * Check if audience is valid - SECURITY FIX: Use exact matching instead of string matching
-   */
-  private isValidAudience(audience: string | string[]): boolean {
-    // SECURITY FIX: Use exact matching instead of string matching
-    const allowedAudiences = [
-      'atproto',
-      'https://sds.example.com',
-      'sds-server', // For testing
-      'pds-server', // For testing
-    ]
-
-    const aud = Array.isArray(audience) ? audience : [audience]
-
-    // In development mode, also trust localhost audiences
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'test'
-    ) {
-      const isValid = aud.some(
-        (a) =>
-          allowedAudiences.includes(a) ||
-          a.startsWith('http://localhost:') ||
-          a === 'sds' ||
-          a === 'pds',
-      )
-      if (!isValid) {
-        console.log('[SdsAuthVerifier] Invalid audience in development:', aud)
-        console.log('[SdsAuthVerifier] Allowed audiences:', allowedAudiences)
-        console.log('[SdsAuthVerifier] NODE_ENV:', process.env.NODE_ENV)
-      }
-      return isValid
-    }
-
-    const isValid = aud.some((a) => allowedAudiences.includes(a))
-    if (!isValid) {
-      console.log('[SdsAuthVerifier] Invalid audience:', aud)
-      console.log('[SdsAuthVerifier] Allowed audiences:', allowedAudiences)
-    }
-    return isValid
-  }
-
-  /**
-   * Validate OAuth scopes
-   */
-  private validateScopes(scopes: string | string[]): string[] {
-    const scopeArray = Array.isArray(scopes) ? scopes : [scopes]
-
-    // Filter out invalid or malicious scopes
-    const validScopes = scopeArray.filter((scope) => {
-      // Basic scope validation - prevent injection
-      if (typeof scope !== 'string') return false
-      if (scope.length > 100) return false // Prevent extremely long scopes
-      if (!/^[a-zA-Z0-9:_*-]+$/.test(scope)) return false // Only allow safe characters
-      return true
-    })
-
-    return validScopes
-  }
-
-  /**
-   * Validate RPC permissions based on scopes
-   */
-  private validateRpcPermissions(params: any, scopes: string[]): boolean {
-    // Basic RPC permission validation
-    if (!params?.lxm) return false
-
-    // Check if the method requires specific scopes
-    if (params.lxm.startsWith('com.sds.')) {
-      // SDS endpoints require repo scopes
-      return scopes.some(
-        (scope) => scope.includes('repo') || scope.includes('atproto'),
-      )
-    }
-
-    return true
-  }
-
-  /**
-   * Extract OAuth scopes from ScopePermissions
-   */
-  private extractScopes(permissions: ScopePermissions): string[] {
-    if (!permissions.scopes) return []
-    return Array.from(permissions.scopes)
-  }
-
-  /**
-   * Check if OAuth scopes allow a specific SDS role action
-   */
-  public validateScopeForRole(
-    permissions: ScopePermissions,
-    action: keyof RepositoryPermissions,
-    repoDid?: string,
-  ): boolean {
-    const scopes = this.extractScopes(permissions)
-
-    let requiredScopes: string[]
-    switch (action) {
-      case 'admin':
-        requiredScopes = this.scopeMapping.adminScopes
-        break
-      case 'write':
-        requiredScopes = this.scopeMapping.writeScopes
-        break
-      case 'read':
-        requiredScopes = this.scopeMapping.readScopes
-        break
-      default:
-        return false
-    }
-
-    // Check if any of the user's scopes match the required scopes
-    return scopes.some((scope) =>
-      this.matchScope(scope, requiredScopes, repoDid),
+    this.tokenExtractor = new SimpleTokenExtractor()
+    this.publicUrl = opts.publicUrl
+    console.log(
+      '[SDS Auth] SdsAuthVerifier instantiated with production DPoP validation',
     )
   }
 
   /**
-   * Check if a scope matches any of the required scopes, handling patterns and audiences
+   * Validates a DPoP proof without nonce verification (resource server mode)
+   *
+   * This validates:
+   * - Proof signature using embedded JWK
+   * - HTTP method (htm) matches request
+   * - Target URI (htu) matches request
+   * - Access token hash (ath) matches token
+   * - Proof freshness (iat within 60 seconds)
+   * - Replay protection (jti exists)
+   *
+   * Does NOT validate nonces (authorization server responsibility)
    */
-  private matchScope(
-    userScope: string,
-    requiredScopes: string[],
-    repoDid?: string,
-  ): boolean {
-    // Direct match
-    if (requiredScopes.includes(userScope)) {
-      return true
+  private async validateDpopProof(
+    method: string,
+    url: URL,
+    headers: Record<string, undefined | string | string[]>,
+    accessToken: string,
+  ): Promise<{ jkt: string }> {
+    // 1. Extract DPoP header
+    const dpopHeader = headers['dpop']
+    if (!dpopHeader || typeof dpopHeader !== 'string') {
+      throw new AuthRequiredError('Missing DPoP header')
     }
 
-    // Handle XRPC method scopes with audience parameters
-    for (const requiredScope of requiredScopes) {
-      if (requiredScope.startsWith('rpc:')) {
-        // Match method-specific scopes
-        if (userScope.startsWith(requiredScope)) {
-          // Check if audience matches (if specified)
-          if (repoDid && userScope.includes('?aud=')) {
-            const audienceMatch = userScope.includes(`aud=${repoDid}`)
-            if (audienceMatch) return true
-          } else {
-            // No audience required or scope has no audience restriction
-            return true
-          }
-        }
-      }
-    }
+    console.log('[SDS Auth] Extracting DPoP proof')
 
-    // Handle wildcard scopes
-    if (userScope === 'atproto' || userScope === 'repo:*') {
-      return true
-    }
+    // 2. Decode DPoP proof to get structure
+    let dpopProofHeader: any
 
-    return false
-  }
-
-  /**
-   * Get the highest SDS role that OAuth scopes allow
-   */
-  public getHighestAllowedRole(
-    permissions: ScopePermissions,
-    repoDid?: string,
-  ): 'admin' | 'write' | 'read' | null {
-    if (this.validateScopeForRole(permissions, 'admin', repoDid)) return 'admin'
-    if (this.validateScopeForRole(permissions, 'write', repoDid)) return 'write'
-    if (this.validateScopeForRole(permissions, 'read', repoDid)) return 'read'
-    return null
-  }
-
-  /**
-   * Check if OAuth scopes allow owner-level actions
-   */
-  public validateScopeForOwner(permissions: ScopePermissions): boolean {
-    const scopes = this.extractScopes(permissions)
-    return scopes.some((scope) => this.scopeMapping.ownerScopes.includes(scope))
-  }
-
-  /**
-   * Validate that a user's OAuth scopes allow their SDS role permissions
-   */
-  public async validateUserScopePermissions(
-    repoDid: string,
-    userDid: string,
-    permissions: ScopePermissions,
-  ): Promise<{
-    allowed: boolean
-    reason?: string
-    userRole?: 'admin' | 'write' | 'read' | 'owner' | null
-    requiredScope?: string
-  }> {
     try {
-      // Check if this is the repository owner
-      if (repoDid === userDid) {
-        const canOwn = this.validateScopeForOwner(permissions)
-        return {
-          allowed: canOwn,
-          userRole: 'owner',
-          reason: canOwn
-            ? undefined
-            : 'OAuth scope does not allow repository ownership',
-          requiredScope: canOwn ? undefined : 'repo:* or atproto',
-        }
+      const parts = dpopHeader.split('.')
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format')
       }
 
-      // Get the user's SDS permissions
-      const sdsPermissions = await this.permissionManager.getPermissions(
-        repoDid,
-        userDid,
+      dpopProofHeader = JSON.parse(
+        Buffer.from(parts[0], 'base64url').toString('utf-8'),
       )
-      if (!sdsPermissions) {
-        return {
-          allowed: true, // No SDS permissions means no restrictions
-          userRole: null,
-        }
-      }
-
-      // Determine the highest SDS role the user has
-      let userRole: 'admin' | 'write' | 'read' | null = null
-      if (sdsPermissions.admin) userRole = 'admin'
-      else if (sdsPermissions.write) userRole = 'write'
-      else if (sdsPermissions.read) userRole = 'read'
-
-      if (!userRole) {
-        return {
-          allowed: true, // No effective permissions
-          userRole: null,
-        }
-      }
-
-      // Check if OAuth scopes allow this SDS role
-      const scopeAllowed = this.validateScopeForRole(
-        permissions,
-        userRole,
-        repoDid,
-      )
-      return {
-        allowed: scopeAllowed,
-        userRole,
-        reason: scopeAllowed
-          ? undefined
-          : `OAuth scope does not allow ${userRole} actions`,
-        requiredScope: scopeAllowed
-          ? undefined
-          : this.scopeMapping[`${userRole}Scopes`].join(' or '),
-      }
     } catch (error) {
-      console.error('Error validating user scope permissions:', error)
-      return {
-        allowed: false,
-        reason: 'Failed to validate permissions',
+      throw new AuthRequiredError('Invalid DPoP proof format')
+    }
+
+    // 3. Validate DPoP proof structure
+    if (dpopProofHeader.typ !== 'dpop+jwt') {
+      throw new AuthRequiredError('DPoP proof must have typ=dpop+jwt')
+    }
+
+    if (!dpopProofHeader.jwk) {
+      throw new AuthRequiredError('DPoP proof must include jwk in header')
+    }
+
+    console.log('[SDS Auth] Validating DPoP proof signature')
+
+    // 4. Import the JWK from the DPoP proof header
+    let publicKey: jose.KeyLike | Uint8Array
+    try {
+      publicKey = await jose.importJWK(dpopProofHeader.jwk, dpopProofHeader.alg)
+    } catch (error) {
+      throw new AuthRequiredError('Invalid JWK in DPoP proof')
+    }
+
+    // 5. Verify the DPoP proof signature
+    let verifiedPayload: jose.JWTVerifyResult
+    try {
+      verifiedPayload = await jose.jwtVerify(dpopHeader, publicKey, {
+        typ: 'dpop+jwt',
+      })
+    } catch (error) {
+      console.error('[SDS Auth] DPoP signature verification failed:', error)
+      throw new AuthRequiredError('DPoP proof signature verification failed')
+    }
+
+    console.log('[SDS Auth] ✅ DPoP proof signature verified')
+
+    // 6. Validate htm claim (HTTP method)
+    if (verifiedPayload.payload.htm !== method) {
+      throw new AuthRequiredError(
+        `DPoP proof htm claim mismatch. Expected ${method}, got ${verifiedPayload.payload.htm}`,
+      )
+    }
+
+    // 7. Validate htu claim (HTTP URI)
+    const expectedHtu = `${url.protocol}//${url.host}${url.pathname}`
+    if (verifiedPayload.payload.htu !== expectedHtu) {
+      throw new AuthRequiredError(
+        `DPoP proof htu claim mismatch. Expected ${expectedHtu}, got ${verifiedPayload.payload.htu}`,
+      )
+    }
+
+    // 8. Validate ath claim (access token hash)
+    const tokenHash = createHash('sha256')
+      .update(accessToken)
+      .digest('base64url')
+
+    if (verifiedPayload.payload.ath !== tokenHash) {
+      throw new AuthRequiredError(
+        'DPoP proof ath claim does not match access token',
+      )
+    }
+
+    // 9. Validate jti claim exists (replay protection)
+    if (
+      !verifiedPayload.payload.jti ||
+      typeof verifiedPayload.payload.jti !== 'string'
+    ) {
+      throw new AuthRequiredError('DPoP proof must include jti claim')
+    }
+
+    // 10. Validate iat claim (issued at time)
+    if (
+      !verifiedPayload.payload.iat ||
+      typeof verifiedPayload.payload.iat !== 'number'
+    ) {
+      throw new AuthRequiredError('DPoP proof must include iat claim')
+    }
+
+    // Check if proof is too old (e.g., more than 60 seconds)
+    const now = Math.floor(Date.now() / 1000)
+    const age = now - verifiedPayload.payload.iat
+    if (age > 60) {
+      throw new AuthRequiredError('DPoP proof is too old')
+    }
+    if (age < -5) {
+      // Allow 5 seconds clock skew
+      throw new AuthRequiredError('DPoP proof iat is in the future')
+    }
+
+    console.log('[SDS Auth] ✅ All DPoP proof claims validated')
+
+    // 11. Calculate JKT (thumbprint) for the response
+    const jkt = await jose.calculateJwkThumbprint(dpopProofHeader.jwk, 'sha256')
+
+    return { jkt }
+  }
+
+  /**
+   * Override oauth method with DPoP-only authentication
+   *
+   * This method:
+   * 1. Extracts DPoP token from authorization header
+   * 2. Validates cryptographic proof-of-possession (DPoP proof)
+   * 3. Extracts DID from token (no signature validation of token itself)
+   * 4. Returns credentials (authorization checked via SDS DB permissions)
+   *
+   * Security: Bearer tokens are rejected. All clients must use DPoP.
+   */
+  oauth<P extends Params = Params>(_options: any = {}): any {
+    return async (ctx: MethodAuthContext<P>) => {
+      this.setAuthHeaders(ctx.res)
+
+      console.log('[SDS Auth] OAuth authentication started')
+
+      try {
+        // Extract authorization header
+        const authHeader = ctx.req.headers.authorization
+        if (!authHeader) {
+          throw new AuthRequiredError('Missing authorization header')
+        }
+
+        // Parse token type and token
+        const parts = authHeader.split(' ')
+        if (parts.length !== 2) {
+          throw new AuthRequiredError('Invalid authorization header format')
+        }
+
+        const [tokenType, token] = parts
+        if (!token) {
+          throw new AuthRequiredError('Missing token')
+        }
+
+        // Only DPoP tokens are accepted
+        if (tokenType !== 'DPoP') {
+          throw new AuthRequiredError(
+            'DPoP tokens required. Bearer tokens are not accepted for security reasons. ' +
+              'Clients must create DPoP proofs for all requests.',
+          )
+        }
+
+        console.log(`[SDS Auth] Extracting DID from token`)
+
+        // Extract DID from token (no signature validation of token itself)
+        const { did } = this.tokenExtractor.extractDid(token)
+
+        console.log('[SDS Auth] Validating DPoP proof')
+
+        // Build full URL for DPoP validation
+        const originalUrl = ctx.req.originalUrl || ctx.req.url || '/'
+        const fullUrl = new URL(originalUrl, this.publicUrl)
+
+        // Validate DPoP proof cryptographically
+        const dpopProof = await this.validateDpopProof(
+          ctx.req.method || 'GET',
+          fullUrl,
+          ctx.req.headers,
+          token,
+        )
+
+        console.log(`[SDS Auth] ✅ DPoP proof validated: jkt=${dpopProof.jkt}`)
+
+        return {
+          credentials: {
+            type: 'oauth' as const,
+            did,
+            dpopProof,
+          },
+        }
+      } catch (error) {
+        console.log('[SDS Auth] Authentication error:', error)
+        throw error instanceof AuthRequiredError
+          ? error
+          : new AuthRequiredError('Authentication failed')
       }
     }
   }
 
-  // Note: We don't override authorization() as it changes the return type
-  // Instead, SDS permission checks are handled in the endpoint handlers
-  // where we have access to the request body (repo parameter)
+  /**
+   * Set auth headers on response
+   */
+  private setAuthHeaders(res: any): void {
+    res.setHeader('Cache-Control', 'private')
+    appendVary(res, 'Authorization')
+  }
 
   /**
    * Check if a user has access to perform an action on a repository
@@ -548,7 +279,7 @@ export class SdsAuthVerifier extends AuthVerifier {
       return await this.permissionManager.checkAccess(repoDid, userDid, action)
     } catch (error) {
       // Log the error but don't throw - return false to deny access
-      console.error('Error checking repository access:', error)
+      console.error('[SDS Auth] Error checking repository access:', error)
       return false
     }
   }
@@ -627,93 +358,5 @@ export class SdsAuthVerifier extends AuthVerifier {
 
     // Default to read for GET operations and other cases
     return 'read'
-  }
-
-  /**
-   * Create authorization function for SDS endpoints
-   * This is a helper that endpoints can use to easily set up SDS-aware auth
-   */
-  sdsAuthorization<P extends Params = Params>(
-    options: {
-      checkTakedown?: boolean
-      checkDeactivated?: boolean
-      requireOwner?: boolean // If true, only allow repository owners (disable sharing)
-      action?: keyof RepositoryPermissions // Override action detection
-      validateScopes?: boolean // Whether to validate OAuth scopes against SDS roles
-      authorize?: (
-        permissions: ScopePermissions,
-        ctx: MethodAuthContext<P>,
-      ) => Promise<void> | void
-    } = {},
-  ) {
-    return this.authorization({
-      checkTakedown: options.checkTakedown,
-      checkDeactivated: options.checkDeactivated,
-      authorize: async (
-        permissions: ScopePermissions,
-        ctx: MethodAuthContext<P>,
-      ) => {
-        // Run any custom authorization first
-        if (options.authorize) {
-          await options.authorize(permissions, ctx)
-        }
-
-        // OAuth scope validation (if enabled)
-        if (options.validateScopes && options.action) {
-          // Note: repoDid is not available here, so we do basic scope validation
-          // Repository-specific validation should be done in the handler
-          const scopeValid = this.validateScopeForRole(
-            permissions,
-            options.action,
-          )
-          if (!scopeValid) {
-            const highestRole = this.getHighestAllowedRole(permissions)
-            const requiredScopes =
-              this.scopeMapping[`${options.action}Scopes`].join(', ')
-            throw new AuthRequiredError(
-              `Insufficient OAuth scope for ${options.action} action. Required: ${requiredScopes}. ` +
-                `Your highest allowed role: ${highestRole || 'none'}`,
-            )
-          }
-        }
-
-        // SDS-specific authorization will be handled in the endpoint handlers
-        // where we have access to the 'repo' parameter from the request body
-      },
-    })
-  }
-
-  /**
-   * Helper method to validate scope permissions for a specific repository and user
-   * This should be called from endpoint handlers after extracting repo/user information
-   */
-  async validateRepositoryScopeAccess(
-    repoDid: string,
-    userDid: string,
-    permissions: ScopePermissions,
-    action: keyof RepositoryPermissions,
-  ): Promise<void> {
-    const validation = await this.validateUserScopePermissions(
-      repoDid,
-      userDid,
-      permissions,
-    )
-
-    if (!validation.allowed) {
-      throw new AuthRequiredError(
-        validation.reason || 'OAuth scope validation failed',
-        validation.requiredScope
-          ? `Required scope: ${validation.requiredScope}`
-          : undefined,
-      )
-    }
-
-    // Also validate that the OAuth scope allows the specific action being performed
-    if (!this.validateScopeForRole(permissions, action, repoDid)) {
-      const requiredScopes = this.scopeMapping[`${action}Scopes`].join(', ')
-      throw new AuthRequiredError(
-        `OAuth scope does not allow ${action} actions. Required: ${requiredScopes}`,
-      )
-    }
   }
 }

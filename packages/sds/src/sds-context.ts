@@ -31,11 +31,11 @@ export const createSdsContext = async (
     baseContextOptions.accountManager.db,
   )
 
-  // Create SDS auth verifier (extends base auth verifier with permission checks)
+  // Create SDS auth verifier with federated OAuth validation and SDS permission checks
   const sdsAuthVerifier = new SdsAuthVerifier(
     baseContextOptions.accountManager,
     baseContextOptions.idResolver,
-    baseContextOptions.authVerifier.oauthVerifier,
+    baseContextOptions.authVerifier.oauthVerifier, // Dummy verifier (not used)
     {
       publicUrl: baseContextOptions.cfg.service.publicUrl,
       jwtKey: baseContextOptions.authVerifier['_jwtKey'], // Access private field
@@ -43,7 +43,6 @@ export const createSdsContext = async (
       dids: baseContextOptions.authVerifier.dids,
     },
     permissionManager,
-    // Use default scope mapping for OAuth to SDS role validation
   )
 
   // Create SDS context with enhanced components

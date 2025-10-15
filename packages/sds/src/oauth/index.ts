@@ -1,8 +1,3 @@
-export { OAuthConfigManager } from './oauth-config'
-export { CrossServerOAuthVerifier } from './cross-server-verifier'
-export type {
-  CrossServerOAuthVerifierOptions,
-  OAuthAuthorizationServerMetadata,
-  OAuthConfig,
-  TrustedIssuer,
-} from './types'
+export { FederatedTokenValidator } from './federated-token-validator'
+export type { TokenValidationResult } from './federated-token-validator'
+export { SimpleTokenExtractor } from './simple-token-extractor'

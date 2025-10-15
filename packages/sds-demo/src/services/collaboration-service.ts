@@ -48,14 +48,18 @@ export interface GetPermissionsResponse {
  */
 export async function grantRepositoryAccess(
   request: GrantAccessRequest,
-  agent: any
+  agent: any,
 ): Promise<GrantAccessResponse> {
   console.log('[CollabService] Granting access:', request)
 
   try {
     // The agent.call method expects (lexicon, params, data)
     // For procedures that take input in the body, pass undefined for params and the body data as the third argument
-    const response = await agent.call('com.sds.repo.grantAccess', undefined, request)
+    const response = await agent.call(
+      'com.sds.repo.grantAccess',
+      undefined,
+      request,
+    )
     console.log('[CollabService] Access granted successfully:', response.data)
     return response.data
   } catch (error) {
@@ -64,7 +68,7 @@ export async function grantRepositoryAccess(
       message: error?.message,
       status: error?.status,
       error: error?.error,
-      response: error?.response?.data || error?.response
+      response: error?.response?.data || error?.response,
     })
     throw error
   }
@@ -76,7 +80,7 @@ export async function grantRepositoryAccess(
 export async function revokeRepositoryAccess(
   repoDid: string,
   userDid: string,
-  agent: any
+  agent: any,
 ): Promise<{ success: boolean }> {
   console.log('[CollabService] Revoking access:', { repoDid, userDid })
 
@@ -93,7 +97,7 @@ export async function revokeRepositoryAccess(
       message: error?.message,
       status: error?.status,
       error: error?.error,
-      response: error?.response?.data || error?.response
+      response: error?.response?.data || error?.response,
     })
     throw error
   }
@@ -101,43 +105,55 @@ export async function revokeRepositoryAccess(
 
 /**
  * List all collaborators for a repository
+ * Uses authenticated SDS agent for proper authorization
  */
 export async function listRepositoryCollaborators(
   repoDid: string,
+  agent: any,
   limit = 50,
-  cursor?: string
+  cursor?: string,
 ): Promise<ListCollaboratorsResponse> {
-  console.log('[CollabService] Listing collaborators:', { repoDid, limit, cursor })
-
-  let url = `${SDS_SERVER_URL}/xrpc/com.sds.repo.listCollaborators?repo=${encodeURIComponent(repoDid)}&limit=${limit}`
-  if (cursor) {
-    url += `&cursor=${encodeURIComponent(cursor)}`
-  }
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  console.log('[CollabService] Listing collaborators:', {
+    repoDid,
+    limit,
+    cursor,
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`[CollabService] List collaborators failed: ${response.status} ${errorText}`)
-    throw new Error(`HTTP ${response.status}: ${errorText}`)
-  }
+  try {
+    const params: any = {
+      repo: repoDid,
+      limit: limit,
+    }
+    if (cursor) {
+      params.cursor = cursor
+    }
 
-  const responseData: ListCollaboratorsResponse = await response.json()
-  console.log('[CollabService] Collaborators listed successfully:', responseData)
-  return responseData
+    const response = await agent.call('com.sds.repo.listCollaborators', params)
+    console.log(
+      '[CollabService] Collaborators listed successfully:',
+      response.data,
+    )
+    return response.data
+  } catch (error) {
+    console.error('[CollabService] List collaborators failed:', error)
+    console.error('[CollabService] Error details:', {
+      message: error?.message,
+      status: error?.status,
+      error: error?.error,
+      response: error?.response?.data || error?.response,
+    })
+    throw error
+  }
 }
 
 /**
  * Get specific permissions for a user on a repository
+ * Uses authenticated SDS agent for proper authorization
  */
 export async function getRepositoryPermissions(
   repoDid: string,
-  userDid?: string
+  agent: any,
+  userDid?: string,
 ): Promise<GetPermissionsResponse> {
   console.log('[CollabService] Getting permissions:', { repoDid, userDid })
 
@@ -146,24 +162,26 @@ export async function getRepositoryPermissions(
     throw new Error('userDid is required for getPermissions call')
   }
 
-  let url = `${SDS_SERVER_URL}/xrpc/com.sds.repo.getPermissions?repo=${encodeURIComponent(repoDid)}&userDid=${encodeURIComponent(userDid)}`
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`[CollabService] Get permissions failed: ${response.status} ${errorText}`)
-    throw new Error(`HTTP ${response.status}: ${errorText}`)
+  try {
+    const response = await agent.call('com.sds.repo.getPermissions', {
+      repo: repoDid,
+      userDid: userDid,
+    })
+    console.log(
+      '[CollabService] Permissions retrieved successfully:',
+      response.data,
+    )
+    return response.data
+  } catch (error) {
+    console.error('[CollabService] Get permissions failed:', error)
+    console.error('[CollabService] Error details:', {
+      message: error?.message,
+      status: error?.status,
+      error: error?.error,
+      response: error?.response?.data || error?.response,
+    })
+    throw error
   }
-
-  const responseData: GetPermissionsResponse = await response.json()
-  console.log('[CollabService] Permissions retrieved successfully:', responseData)
-  return responseData
 }
 
 /**

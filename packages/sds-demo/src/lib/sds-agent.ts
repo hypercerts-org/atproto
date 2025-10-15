@@ -1,7 +1,8 @@
 import { Agent } from '@atproto/api'
 import { LexiconDoc } from '@atproto/lexicon'
-import { OAuthSession } from '@atproto/oauth-client'
-import { SDS_SERVER_URL } from '../constants.ts'
+import { OAuthSession, dpopFetchWrapper } from '@atproto/oauth-client'
+import { Fetch } from '@atproto-labs/fetch'
+import { ENV, SDS_SERVER_URL } from '../constants.ts'
 
 // SDS Lexicon definitions including organization creation
 const sdsLexicons: LexiconDoc[] = [
@@ -11,7 +12,8 @@ const sdsLexicons: LexiconDoc[] = [
     defs: {
       main: {
         type: 'procedure',
-        description: 'Create a new organization with its own repository that can be shared with collaborators. The creator becomes the owner with full admin privileges.',
+        description:
+          'Create a new organization with its own repository that can be shared with collaborators. The creator becomes the owner with full admin privileges.',
         input: {
           encoding: 'application/json',
           schema: {
@@ -31,7 +33,8 @@ const sdsLexicons: LexiconDoc[] = [
               handle: {
                 type: 'string',
                 format: 'handle',
-                description: 'Optional custom handle for the organization. If not provided, will be auto-generated.',
+                description:
+                  'Optional custom handle for the organization. If not provided, will be auto-generated.',
               },
               creatorDid: {
                 type: 'string',
@@ -45,7 +48,14 @@ const sdsLexicons: LexiconDoc[] = [
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['did', 'handle', 'name', 'createdAt', 'permissions', 'accessType'],
+            required: [
+              'did',
+              'handle',
+              'name',
+              'createdAt',
+              'permissions',
+              'accessType',
+            ],
             properties: {
               did: {
                 type: 'string',
@@ -73,12 +83,13 @@ const sdsLexicons: LexiconDoc[] = [
               permissions: {
                 type: 'ref',
                 ref: 'com.sds.repo.grantAccess#permissions',
-                description: 'The creator\'s permissions for this organization (always full admin).',
+                description:
+                  "The creator's permissions for this organization (always full admin).",
               },
               accessType: {
                 type: 'string',
                 knownValues: ['owner'],
-                description: 'The creator\'s access type (always owner).',
+                description: "The creator's access type (always owner).",
               },
             },
           },
@@ -102,7 +113,8 @@ const sdsLexicons: LexiconDoc[] = [
     defs: {
       main: {
         type: 'query',
-        description: 'List organizations that the authenticated user has access to.',
+        description:
+          'List organizations that the authenticated user has access to.',
         parameters: {
           type: 'params',
           properties: {
@@ -132,7 +144,7 @@ const sdsLexicons: LexiconDoc[] = [
       },
       organization: {
         type: 'object',
-        description: 'Organization information with user\'s access details',
+        description: "Organization information with user's access details",
         required: ['did', 'handle', 'name', 'permissions', 'accessType'],
         properties: {
           did: {
@@ -161,12 +173,12 @@ const sdsLexicons: LexiconDoc[] = [
           permissions: {
             type: 'ref',
             ref: 'com.sds.repo.grantAccess#permissions',
-            description: 'The user\'s permissions for this organization.',
+            description: "The user's permissions for this organization.",
           },
           accessType: {
             type: 'string',
             knownValues: ['owner', 'collaborator'],
-            description: 'The user\'s access type.',
+            description: "The user's access type.",
           },
         },
       },
@@ -377,42 +389,58 @@ const sdsLexicons: LexiconDoc[] = [
  * Extended Agent that can route calls between PDS and SDS servers
  */
 export class SdsAgent extends Agent {
-  private sdsAgent: Agent
   private oauthSession: OAuthSession
+  private sdsDpopFetch: Fetch<unknown>
 
   constructor(session: OAuthSession) {
     // Create main agent for PDS calls
+    // The OAuth session automatically routes requests to the correct PDS
     super(session)
 
     // Store session reference for SDS calls
     this.oauthSession = session
 
-    // Create separate agent for SDS calls
-    // Pass the session to get OAuth authentication, then override the service URL
-    this.sdsAgent = new Agent(session)
+    console.log('[SdsAgent] Initialized with OAuth session')
+    console.log(`[SdsAgent] PDS URL: ${session.serverMetadata.issuer}`)
+    console.log(`[SdsAgent] SDS URL: ${SDS_SERVER_URL}`)
+    console.log(`[SdsAgent] Environment: ${ENV}`)
 
-    // Override the service URL to point to SDS server
-    // This needs to be done after construction to preserve OAuth session
-    this.sdsAgent.api.xrpc.baseUri = SDS_SERVER_URL
-
-    // Ensure the session service points to SDS for future requests
-    // This is a bit of a hack, but necessary for proper routing
-    const originalService = session.service
-    try {
-      // Temporarily override the session's service URL for SDS calls
-      Object.defineProperty(session, 'service', {
-        get: () => SDS_SERVER_URL,
-        configurable: true
-      })
-    } catch (e) {
-      // If we can't override the service property, just set the baseUri
-      console.warn('Could not override session service, relying on baseUri override')
+    // Verify we're using local services in development
+    if (ENV === 'development') {
+      if (!session.serverMetadata.issuer.includes('localhost')) {
+        console.error(
+          '[SdsAgent] ⚠️  WARNING: PDS is not localhost!',
+          session.serverMetadata.issuer,
+        )
+        console.error(
+          '[SdsAgent] You may need to create a local account at http://localhost:2583',
+        )
+      }
+      if (!SDS_SERVER_URL.includes('localhost')) {
+        console.error(
+          '[SdsAgent] ⚠️  WARNING: SDS is not localhost!',
+          SDS_SERVER_URL,
+        )
+      }
     }
 
-    // Add SDS lexicons to both agents
+    // Create DPoP fetch wrapper for SDS (third-party resource server)
+    // Uses the same DPoP key from the OAuth session and shares the nonce cache
+    // The nonce cache is per-origin, so SDS and PDS nonces are managed separately
+    this.sdsDpopFetch = dpopFetchWrapper<void>({
+      fetch: globalThis.fetch.bind(globalThis), // Bind to maintain context
+      key: session.server.dpopKey,
+      supportedAlgs: session.serverMetadata.dpop_signing_alg_values_supported,
+      sha256: async (v) => session.server.runtime.sha256(v),
+      nonces: session.server.dpopNonces,
+      isAuthServer: false, // SDS is a resource server, not an auth server
+    })
+
+    console.log('[SdsAgent] ✅ Created DPoP fetch wrapper for SDS')
+
+    // Add SDS lexicons to this agent so we can route SDS calls
     for (const lexicon of sdsLexicons) {
-      ; (this as any).lex.add(lexicon)
-        ; (this.sdsAgent as any).lex.add(lexicon)
+      ;(this as any).lex.add(lexicon)
     }
   }
 
@@ -420,20 +448,18 @@ export class SdsAgent extends Agent {
   async call(methodId: string, params?: any, data?: any, opts?: any) {
     // Route SDS-specific calls to the SDS server
     if (methodId.startsWith('com.sds.')) {
-      console.log(`[SdsAgent] Routing ${methodId} to SDS server`)
-      console.log(`[SdsAgent] Expected SDS URL: ${SDS_SERVER_URL}`)
-      console.log(`[SdsAgent] Current baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
+      console.log(
+        `[SdsAgent] Routing ${methodId} to SDS server: ${SDS_SERVER_URL}`,
+      )
 
-      // Force the baseUri to be correct before making the call
-      this.sdsAgent.api.xrpc.baseUri = SDS_SERVER_URL
-      console.log(`[SdsAgent] Updated baseUri: ${this.sdsAgent.api.xrpc.baseUri}`)
-
-      // Use direct HTTP call with OAuth bearer token to avoid client-side RPC scope validation
-      // This bypasses the OAuth agent's service URL restrictions and scope validation
       try {
-        console.log(`[SdsAgent] Making direct HTTP call with OAuth token to ${SDS_SERVER_URL}`)
+        // Get the access token from the OAuth session
+        const tokenSet = await (this.oauthSession as any).getTokenSet('auto')
+        if (!tokenSet?.access_token) {
+          throw new Error('No access token available for SDS request')
+        }
 
-        // Build the URL
+        // Build the URL with query params
         let url = `${SDS_SERVER_URL}/xrpc/${methodId}`
         if (params) {
           const searchParams = new URLSearchParams()
@@ -443,106 +469,55 @@ export class SdsAgent extends Agent {
             }
           }
           const queryString = searchParams.toString()
-          if (queryString) {
-            url += `?${queryString}`
-          }
+          if (queryString) url += `?${queryString}`
         }
 
-        console.log(`[SdsAgent] Making authenticated call to: ${url}`)
+        console.log(`[SdsAgent] Making DPoP request to: ${url}`)
 
-        // Check if this is a POST method that needs manual authentication (like grantAccess)
-        // GET requests and some endpoints work fine with dpopFetch
-        const needsManualAuth = data && methodId.includes('grantAccess')
+        // Use DPoP fetch for SDS calls with cryptographic proof-of-possession
+        // The sdsDpopFetch wrapper automatically:
+        // - Creates DPoP proof JWT signed with the OAuth session's DPoP key
+        // - Includes htm (HTTP method) and htu (target URI) claims
+        // - Includes ath (access token hash) claim
+        // - Manages DPoP nonces for the SDS origin
+        const response = await this.sdsDpopFetch(url, {
+          method: data ? 'POST' : 'GET',
+          headers: {
+            Authorization: `DPoP ${tokenSet.access_token}`,
+            'Content-Type': 'application/json',
+            ...opts?.headers,
+          },
+          body: data ? JSON.stringify(data) : undefined,
+        })
 
-        if (needsManualAuth) {
-          console.log('[SdsAgent] Using manual authentication for POST endpoint...')
+        console.log(`[SdsAgent] SDS response status: ${response.status}`)
 
-          // Get the access token from the OAuth session
-          const tokenSet = await (this.oauthSession as any).getTokenSet('auto')
-          if (!tokenSet?.access_token) {
-            throw new Error('No access token available for cross-server request')
-          }
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(
+            `[SdsAgent] SDS call failed: ${response.status} ${errorText}`,
+          )
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
 
-          console.log('[SdsAgent] Token details:', {
-            token_type: tokenSet.token_type,
-            has_access_token: !!tokenSet.access_token,
-            aud: tokenSet.aud,
-            scope: tokenSet.scope
-          })
+        const responseData = await response.json()
+        console.log(`[SdsAgent] SDS call succeeded:`, responseData)
 
-          // Create Authorization header for cross-server DPoP request
-          const authHeader = `${tokenSet.token_type || 'DPoP'} ${tokenSet.access_token}`
-          console.log('[SdsAgent] Authorization header:', authHeader.slice(0, 50) + '...')
-
-          const requestOptions = {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-              ...opts?.headers,
-            },
-            body: JSON.stringify(data),
-          }
-          console.log('[SdsAgent] Manual request options:', {
-            method: requestOptions.method,
-            headers: Object.keys(requestOptions.headers),
-            has_body: !!requestOptions.body
-          })
-
-          const response = await fetch(url, requestOptions)
-          console.log('[SdsAgent] Manual response status:', response.status)
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error(`[SdsAgent] Manual authenticated call failed: ${response.status} ${errorText}`)
-            throw new Error(`HTTP ${response.status}: ${errorText}`)
-          }
-
-          const responseData = await response.json()
-          console.log(`[SdsAgent] Manual authenticated call succeeded:`, responseData)
-
-          return {
-            success: response.ok,
-            headers: Object.fromEntries(response.headers.entries()),
-            data: responseData,
-          }
-        } else {
-          console.log('[SdsAgent] Using dpopFetch for standard request...')
-
-          // Use dpopFetch for GET requests and endpoints that work fine
-          const response = await (this.oauthSession as any).dpopFetch(url, {
-            method: data ? 'POST' : 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...opts?.headers,
-            },
-            body: data ? JSON.stringify(data) : undefined,
-          })
-
-          console.log('[SdsAgent] dpopFetch response status:', response.status)
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error(`[SdsAgent] dpopFetch call failed: ${response.status} ${errorText}`)
-            throw new Error(`HTTP ${response.status}: ${errorText}`)
-          }
-
-          const responseData = await response.json()
-          console.log(`[SdsAgent] dpopFetch call succeeded:`, responseData)
-
-          return {
-            success: response.ok,
-            headers: Object.fromEntries(response.headers.entries()),
-            data: responseData,
-          }
+        return {
+          success: response.ok,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: responseData,
         }
       } catch (error) {
-        console.error(`[SdsAgent] Direct authenticated call failed:`, error)
+        console.error(`[SdsAgent] SDS call error:`, error)
         throw error
       }
     }
-    // Route all other calls to the main PDS server
-    console.log(`[SdsAgent] Routing ${methodId} to PDS server at ${this.api.xrpc.baseUri}`)
+
+    // Route all other calls to PDS via OAuth session (with proper DPoP handling)
+    console.log(
+      `[SdsAgent] Routing ${methodId} to PDS server via OAuth session`,
+    )
     return super.call(methodId, params, data, opts)
   }
 }

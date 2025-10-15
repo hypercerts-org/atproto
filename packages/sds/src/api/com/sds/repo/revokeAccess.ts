@@ -7,22 +7,17 @@ import { SdsPermissionError } from '../../../../types'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.revokeAccess({
-    auth: ctx.authVerifier.authorization({
-      authorize: (permissions, authCtx) => {
-        // Use standard AT Protocol repository permissions - no RPC scope needed
-        // The repo:* scope from the user's PDS should be sufficient
-      },
-    }),
+    auth: ctx.authVerifier.oauth(),
     rateLimit: [
       {
         name: 'sds-permission-write',
-        calcKey: ({ auth }) => auth.credentials.did,
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 1,
       },
     ],
     handler: async ({ input, auth }) => {
       const { repo, userDid } = input.body
-      const revokedByDid = auth.credentials.did
+      const revokedByDid = (auth as any).credentials.did
 
       try {
         // Find the repository account
@@ -33,20 +28,21 @@ export default function (server: Server, ctx: SdsAppContext) {
 
         const repoDid = account.did
 
-        // Validate OAuth scope for repository collaboration management using standard repo permissions
-        if (auth.credentials.type === 'oauth') {
-          auth.credentials.permissions.assertRepo({
-            collection: 'com.sds.repo.collaborators',
-            action: 'delete',
-          })
-        }
-
         // Check if the authenticated user has permission to revoke access
         // Repository owners and users with admin permissions can revoke access
-        const isOwner = await ctx.permissionManager.isOwner(repoDid, revokedByDid)
-        const hasAdminAccess = await ctx.permissionManager.checkAccess(repoDid, revokedByDid, 'admin')
+        const isOwner = await ctx.permissionManager.isOwner(
+          repoDid,
+          revokedByDid,
+        )
+        const hasAdminAccess = await ctx.permissionManager.checkAccess(
+          repoDid,
+          revokedByDid,
+          'admin',
+        )
 
-        console.log(`[SDS] Revoke access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${revokedByDid}, Repo: ${repoDid}`)
+        console.log(
+          `[SDS] Revoke access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${revokedByDid}, Repo: ${repoDid}`,
+        )
 
         if (!isOwner && !hasAdminAccess) {
           throw new AuthRequiredError(

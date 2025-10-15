@@ -18,7 +18,8 @@ import {
 // Query key factory for collaboration-related queries
 export const collaborationKeys = {
   all: ['collaboration'] as const,
-  collaborators: (repoDid: string) => ['collaboration', 'collaborators', repoDid] as const,
+  collaborators: (repoDid: string) =>
+    ['collaboration', 'collaborators', repoDid] as const,
   permissions: (repoDid: string, userDid?: string) =>
     ['collaboration', 'permissions', repoDid, userDid] as const,
 }
@@ -32,7 +33,9 @@ export function useGrantAccessMutation() {
   const auth = useAuthContext()
 
   return useMutation({
-    mutationFn: async (request: GrantAccessRequest): Promise<GrantAccessResponse> => {
+    mutationFn: async (
+      request: GrantAccessRequest,
+    ): Promise<GrantAccessResponse> => {
       if (!auth.signedIn || !auth.agent) {
         throw new Error('Must be signed in to grant repository access')
       }
@@ -45,9 +48,10 @@ export function useGrantAccessMutation() {
       })
 
       // Snapshot the previous value
-      const previousCollaborators = queryClient.getQueryData<ListCollaboratorsResponse>(
-        collaborationKeys.collaborators(request.repo)
-      )
+      const previousCollaborators =
+        queryClient.getQueryData<ListCollaboratorsResponse>(
+          collaborationKeys.collaborators(request.repo),
+        )
 
       // Optimistically update the collaborators list
       if (previousCollaborators) {
@@ -62,8 +66,11 @@ export function useGrantAccessMutation() {
           collaborationKeys.collaborators(request.repo),
           {
             ...previousCollaborators,
-            collaborators: [...previousCollaborators.collaborators, optimisticCollaborator],
-          }
+            collaborators: [
+              ...previousCollaborators.collaborators,
+              optimisticCollaborator,
+            ],
+          },
         )
       }
 
@@ -75,7 +82,7 @@ export function useGrantAccessMutation() {
       if (context?.previousCollaborators) {
         queryClient.setQueryData(
           collaborationKeys.collaborators(request.repo),
-          context.previousCollaborators
+          context.previousCollaborators,
         )
       }
       console.error('Failed to grant repository access:', error)
@@ -90,17 +97,23 @@ export function useGrantAccessMutation() {
           if (!old) return { collaborators: [data.collaborator] }
 
           // Replace the optimistic update with the real data
-          const updatedCollaborators = old.collaborators.map(collab =>
-            collab.userDid === data.collaborator.userDid ? data.collaborator : collab
+          const updatedCollaborators = old.collaborators.map((collab) =>
+            collab.userDid === data.collaborator.userDid
+              ? data.collaborator
+              : collab,
           )
 
           // If this is a new collaborator, add them
-          if (!old.collaborators.some(c => c.userDid === data.collaborator.userDid)) {
+          if (
+            !old.collaborators.some(
+              (c) => c.userDid === data.collaborator.userDid,
+            )
+          ) {
             updatedCollaborators.push(data.collaborator)
           }
 
           return { ...old, collaborators: updatedCollaborators }
-        }
+        },
       )
     },
     onSettled: (data, error, request) => {
@@ -121,7 +134,13 @@ export function useRevokeAccessMutation() {
   const auth = useAuthContext()
 
   return useMutation({
-    mutationFn: async ({ repoDid, userDid }: { repoDid: string; userDid: string }) => {
+    mutationFn: async ({
+      repoDid,
+      userDid,
+    }: {
+      repoDid: string
+      userDid: string
+    }) => {
       if (!auth.signedIn || !auth.agent) {
         throw new Error('Must be signed in to revoke repository access')
       }
@@ -138,9 +157,11 @@ export function useRevokeAccessMutation() {
 
           return {
             ...old,
-            collaborators: old.collaborators.filter(collab => collab.userDid !== userDid),
+            collaborators: old.collaborators.filter(
+              (collab) => collab.userDid !== userDid,
+            ),
           }
-        }
+        },
       )
     },
     onError: (error) => {
@@ -164,9 +185,12 @@ export function useListCollaboratorsQuery(repoDid: string, enabled = true) {
   return useQuery({
     queryKey: collaborationKeys.collaborators(repoDid),
     queryFn: async (): Promise<ListCollaboratorsResponse> => {
-      return await listRepositoryCollaborators(repoDid)
+      if (!auth.agent) {
+        throw new Error('Authentication required')
+      }
+      return await listRepositoryCollaborators(repoDid, auth.agent)
     },
-    enabled: enabled && !!repoDid,
+    enabled: enabled && !!repoDid && !!auth.agent,
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     retry: (failureCount, error) => {
@@ -182,15 +206,22 @@ export function useListCollaboratorsQuery(repoDid: string, enabled = true) {
 /**
  * Hook to get permissions for a specific user on a repository
  */
-export function useGetPermissionsQuery(repoDid: string, userDid?: string, enabled = true) {
+export function useGetPermissionsQuery(
+  repoDid: string,
+  userDid?: string,
+  enabled = true,
+) {
   const auth = useAuthContext()
 
   return useQuery({
     queryKey: collaborationKeys.permissions(repoDid, userDid),
     queryFn: async (): Promise<GetPermissionsResponse> => {
-      return await getRepositoryPermissions(repoDid, userDid)
+      if (!auth.agent) {
+        throw new Error('Authentication required')
+      }
+      return await getRepositoryPermissions(repoDid, auth.agent, userDid)
     },
-    enabled: enabled && !!repoDid && !!userDid,
+    enabled: enabled && !!repoDid && !!userDid && !!auth.agent,
     staleTime: 60 * 1000, // Consider data fresh for 1 minute
     cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     retry: (failureCount, error) => {
@@ -235,9 +266,10 @@ export function useCanManageRepository(repoDid: string) {
   }
 
   return {
-    canManage: isDirectOwner ||
-               permissionsQuery.data?.accessType === 'owner' ||
-               permissionsQuery.data?.permissions?.admin === true,
+    canManage:
+      isDirectOwner ||
+      permissionsQuery.data?.accessType === 'owner' ||
+      permissionsQuery.data?.permissions?.admin === true,
     isLoading: permissionsQuery.isLoading,
     error: permissionsQuery.error,
     isDirectOwner,

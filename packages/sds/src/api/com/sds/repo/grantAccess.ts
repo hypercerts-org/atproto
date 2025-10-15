@@ -7,22 +7,17 @@ import { RepositoryPermissions, SdsPermissionError } from '../../../../types'
 
 export default function (server: Server, ctx: SdsAppContext) {
   server.com.sds.repo.grantAccess({
-    auth: ctx.authVerifier.authorization({
-      authorize: (permissions, authCtx) => {
-        // Use standard AT Protocol repository permissions - no RPC scope needed
-        // The repo:* scope from the user's PDS should be sufficient
-      },
-    }),
+    auth: ctx.authVerifier.oauth(),
     rateLimit: [
       {
         name: 'sds-permission-write',
-        calcKey: ({ auth }) => auth.credentials.did,
+        calcKey: () => 'development', // Development mode - no user-specific limits
         calcPoints: () => 1,
       },
     ],
     handler: async ({ input, auth }) => {
       const { repo, userDid, permissions } = input.body
-      const grantedByDid = auth.credentials.did
+      const grantedByDid = (auth as any).credentials.did
 
       try {
         // Find the repository account first to get repoDid
@@ -32,13 +27,6 @@ export default function (server: Server, ctx: SdsAppContext) {
         })
         const repoDid = account.did
 
-        // Validate OAuth scope for repository collaboration management using standard repo permissions
-        if (auth.credentials.type === 'oauth') {
-          auth.credentials.permissions.assertRepo({
-            collection: 'com.sds.repo.collaborators',
-            action: 'create',
-          })
-        }
         // Validate permissions object
         if (!permissions || typeof permissions !== 'object') {
           throw new InvalidRequestError('Invalid permissions object')
@@ -54,7 +42,10 @@ export default function (server: Server, ctx: SdsAppContext) {
         }
 
         // Validate admin permission if provided
-        if (permissions.admin !== undefined && typeof permissions.admin !== 'boolean') {
+        if (
+          permissions.admin !== undefined &&
+          typeof permissions.admin !== 'boolean'
+        ) {
           throw new InvalidRequestError(
             'Admin permission must be a boolean value',
           )
@@ -62,10 +53,19 @@ export default function (server: Server, ctx: SdsAppContext) {
 
         // Check if the authenticated user has permission to grant access
         // Repository owners and users with admin permissions can grant access
-        const isOwner = await ctx.permissionManager.isOwner(repoDid, grantedByDid)
-        const hasAdminAccess = await ctx.permissionManager.checkAccess(repoDid, grantedByDid, 'admin')
+        const isOwner = await ctx.permissionManager.isOwner(
+          repoDid,
+          grantedByDid,
+        )
+        const hasAdminAccess = await ctx.permissionManager.checkAccess(
+          repoDid,
+          grantedByDid,
+          'admin',
+        )
 
-        console.log(`[SDS] Grant access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${grantedByDid}, Repo: ${repoDid}`)
+        console.log(
+          `[SDS] Grant access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${grantedByDid}, Repo: ${repoDid}`,
+        )
 
         if (!isOwner && !hasAdminAccess) {
           throw new AuthRequiredError(

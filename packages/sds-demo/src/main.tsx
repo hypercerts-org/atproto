@@ -30,18 +30,27 @@ const clientId = `http://localhost?${new URLSearchParams({
 
 const queryClient = new QueryClient()
 
+// Debug logging for OAuth configuration
+console.log('[SDS Demo] OAuth Client ID:', clientId)
+console.log('[SDS Demo] OAuth Config:', {
+  plcDirectoryUrl: PLC_DIRECTORY_URL,
+  signUpUrl: SIGN_UP_URL,
+  handleResolver: HANDLE_RESOLVER_URL,
+  allowHttp: ENV === 'development' || ENV === 'test',
+})
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider
-        clientId={clientId}
-        plcDirectoryUrl={PLC_DIRECTORY_URL}
-        signUpUrl={SIGN_UP_URL}
-        handleResolver={HANDLE_RESOLVER_URL}
-        allowHttp={ENV === 'development' || ENV === 'test'}
-      >
-        <App />
-      </AuthProvider>
-    </QueryClientProvider>
-  </StrictMode>,
+  // Note: StrictMode disabled for OAuth compatibility
+  // StrictMode's double-invocation of effects can interfere with OAuth session restoration
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider
+      clientId={clientId}
+      plcDirectoryUrl={PLC_DIRECTORY_URL}
+      signUpUrl={SIGN_UP_URL}
+      handleResolver={HANDLE_RESOLVER_URL}
+      allowHttp={ENV === 'development' || ENV === 'test'}
+    >
+      <App />
+    </AuthProvider>
+  </QueryClientProvider>,
 )

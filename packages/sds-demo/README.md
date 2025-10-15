@@ -58,13 +58,52 @@ graph TB
     OAuth -->|Issues Tokens| SDS
 ```
 
+## Authentication Flow
+
+The demo uses OAuth 2.0 with DPoP (Demonstrating Proof-of-Possession):
+
+1. **User Sign-In**: User signs in with their AT Protocol handle
+2. **OAuth Redirect**: OAuth client redirects to their PDS for authentication
+3. **User Authorization**: User authorizes the demo app
+4. **Token Issuance**: PDS issues a DPoP-bound access token
+5. **Demo App Requests**: Demo app creates DPoP proofs for SDS with:
+   - `Authorization: DPoP <access_token>` header
+   - `DPoP: <proof_jwt>` header containing cryptographic proof
+   - Uses `dpopFetchWrapper` from `@atproto/oauth-client`
+6. **SDS Validation**: SDS validates the DPoP proof cryptographically
+7. **Authorization**: SDS extracts user DID and checks database permissions
+
+**Security**: DPoP tokens provide proof-of-possession, meaning even if a token is stolen, it cannot be used without the client's private key.
+
+### Key Features
+
+- **Cryptographic Security**: DPoP proof validation prevents token theft and forgery
+- **Identity Verification**: Cryptographic proof validates caller identity
+- **No Bearer Tokens**: SDS rejects insecure Bearer tokens
+- **Third-Party Resource Server**: Demo shows proper DPoP usage for non-issuing servers
+- **No Token Signature Validation**: SDS trusts the token content (PDS uses HS256)
+- **Proof-of-Possession**: Client must possess private key bound to token
+- **No OAuth Provider**: SDS is purely a Resource Server
+- **Database-Only Authorization**: All access control via SDS permission database
+
+### Trust Model
+
+SDS as a resource server:
+
+- Validates cryptographic proof-of-possession (DPoP proof)
+- Trusts token content (DID) from any PDS without signature validation
+- Relies on SDS database for all authorization decisions
+- Does not manage DPoP nonces (delegates to PDS as authorization server)
+
+This model provides strong protection against token theft while maintaining simple federation.
+
 ## Sequence Diagram: Authentication Flow
 
 ```mermaid
 sequenceDiagram
     participant User
     participant DemoApp as SDS Demo App
-    participant OAuth as OAuth Server
+    participant OAuth as OAuth Server (PDS)
     participant PDS as PDS Server
     participant SDS as SDS Server
 
@@ -75,26 +114,33 @@ sequenceDiagram
     OAuth->>User: Show Login Form
     User->>OAuth: Enter Credentials
     OAuth->>OAuth: Validate Credentials
-    OAuth->>OAuth: Generate JWT with DPoP binding
+    OAuth->>OAuth: Generate signed JWT
     OAuth->>DemoApp: Return with Authorization Code
     DemoApp->>OAuth: Exchange Code for Tokens
-    OAuth->>DemoApp: Return Access Token + DPoP Key
+    OAuth->>DemoApp: Return Access Token (JWT)
 
-    Note over User,SDS: Cross-Server Token Verification
+    Note over User,SDS: Federated JWT Validation (First Request)
 
     DemoApp->>PDS: Create Personal Repository
-    Note over DemoApp,PDS: Uses Bearer token from OAuth
+    Note over DemoApp,PDS: Uses Bearer/DPoP token from OAuth
 
     DemoApp->>SDS: Create Organization Repository
-    Note over DemoApp,SDS: SDS validates PDS-issued token
-    SDS->>SDS: Verify JWT signature
-    SDS->>SDS: Check DPoP binding (if DPoP token)
-    SDS->>SDS: Validate issuer & audience
-    SDS->>DemoApp: Grant access to shared repository
+    Note over DemoApp,SDS: SDS validates JWT using fetched JWKS
+    SDS->>SDS: Decode JWT, extract issuer
+    SDS->>PDS: Fetch OAuth metadata (.well-known)
+    PDS->>SDS: Return metadata with jwks_uri
+    SDS->>PDS: Fetch JWKS (public keys)
+    PDS->>SDS: Return JWKS
+    SDS->>SDS: Verify JWT signature with JWKS
+    SDS->>SDS: Cache JWKS for future requests
+    SDS->>SDS: Extract DID from validated JWT
+    SDS->>SDS: Check SDS database permissions
+    SDS->>DemoApp: Grant access based on SDS permissions
 
-    Note over User,SDS: Repository Sharing
+    Note over User,SDS: Subsequent Requests (JWKS Cached)
 
     DemoApp->>SDS: Grant access to other users
+    SDS->>SDS: Verify JWT with cached JWKS
     SDS->>SDS: Update permission matrix
     DemoApp->>SDS: List collaborators
     SDS->>DemoApp: Return collaborator list
@@ -162,18 +208,20 @@ erDiagram
     SHARED_REPO_ACCESS ||--o{ PERMISSION_AUDIT_LOG : "audits"
 ```
 
-## DPoP (Demonstrating Proof-of-Possession) Verification
+## DPoP (Optional Enhanced Security)
 
 ### What is DPoP?
 
-DPoP is an OAuth 2.0 extension that provides **sender-constrained access tokens**. It cryptographically binds the access token to the client's proof-of-possession key, preventing token theft and replay attacks.
+DPoP is an OAuth 2.0 extension that can optionally be used for **sender-constrained access tokens**. When used, it cryptographically binds the access token to the client's proof-of-possession key.
 
-### How DPoP Works in SDS
+**Note:** The SDS federated implementation validates both Bearer and DPoP tokens locally using fetched JWKS. The `@atproto/oauth-provider` Keyset handles DPoP validation during JWT verification.
+
+### How DPoP Works in the ATProto Network
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant OAuth as OAuth Server
+    participant OAuth as OAuth Server (PDS)
     participant SDS as SDS Server
 
     Note over Client,SDS: DPoP Token Generation
@@ -185,14 +233,17 @@ sequenceDiagram
     OAuth->>OAuth: Generate JWT with cnf.jkt claim
     OAuth->>Client: Return Access Token + DPoP Key Thumbprint
 
-    Note over Client,SDS: DPoP Token Usage
+    Note over Client,SDS: Federated JWT Validation with DPoP
 
     Client->>SDS: API Request with DPoP Token
-    Note over Client,SDS: Request includes:<br/>- Authorization: DPoP <token><br/>- DPoP: <proof>
-    SDS->>SDS: Extract DPoP token
-    SDS->>SDS: Validate JWT signature
-    SDS->>SDS: Check cnf.jkt claim
-    SDS->>SDS: Validate DPoP proof against token
+    Note over Client,SDS: Authorization: DPoP <token><br/>DPoP: <proof>
+    SDS->>SDS: Extract token and proof
+    SDS->>SDS: Decode JWT, extract issuer
+    SDS->>OAuth: Fetch JWKS (if not cached)
+    OAuth->>SDS: Return JWKS
+    SDS->>SDS: Verify JWT signature with JWKS
+    SDS->>SDS: Verify DPoP proof matches JWT cnf claim
+    SDS->>SDS: Extract DID, check permissions
     SDS->>Client: Grant/Deny Access
 ```
 
@@ -201,39 +252,42 @@ sequenceDiagram
 1. **Token Binding**: Access tokens are bound to the client's private key
 2. **Replay Protection**: Each request includes a unique DPoP proof
 3. **Theft Prevention**: Stolen tokens cannot be used without the private key
-4. **Cross-Server Security**: SDS can verify tokens issued by PDS with confidence
+4. **Cross-Server Security**: SDS verifies tokens from any PDS using standard JWKS
+5. **Local Validation**: No network calls required after JWKS is cached
 
 ### Implementation Details
 
-The SDS auth verifier handles DPoP tokens through the following process:
+The SDS auth verifier validates tokens through federated JWT validation:
 
 ```typescript
-// DPoP Token Validation Process
-private async validateJwtToken(token: string, req: any): Promise<any> {
-  // 1. Validate JWT format and structure
-  if (!this.isValidJwtFormat(token)) {
-    throw new AuthRequiredError('Invalid token format')
+// Federated JWT Validation Process
+async oauth(options: any = {}): any {
+  return async (ctx) => {
+    // 1. Extract token and type from Authorization header
+    const authHeader = ctx.req.headers.authorization
+    const [tokenType, token] = authHeader.split(' ')
+
+    // 2. Validate token using FederatedTokenValidator
+    // This will:
+    //   - Decode JWT to extract issuer
+    //   - Fetch OAuth metadata from issuer
+    //   - Fetch JWKS from issuer (cached for performance)
+    //   - Verify JWT signature locally
+    //   - Validate DPoP proof if present
+    const result = await this.federatedValidator.validateToken(
+      token,
+      tokenType as 'Bearer' | 'DPoP'
+    )
+
+    // 3. Extract user DID from validated token
+    const did = result.did
+    if (!did) {
+      throw new AuthRequiredError('Invalid token')
+    }
+
+    // 4. Check SDS database permissions (in endpoint handlers)
+    return { credentials: { type: 'oauth', did } }
   }
-
-  // 2. Decode and validate JWT claims
-  const decoded = this.decodeTokenBasic(token)
-
-  // 3. Verify issuer is trusted
-  if (!this.isTrustedIssuer(decoded.iss)) {
-    throw new AuthRequiredError('Untrusted token issuer')
-  }
-
-  // 4. Verify audience is valid
-  if (!this.isValidAudience(decoded.aud)) {
-    throw new AuthRequiredError('Invalid token audience')
-  }
-
-  // 5. For DPoP tokens, validate key binding
-  if (decoded.cnf?.jkt) {
-    await this.validateDpopBinding(token, decoded, req)
-  }
-
-  return decoded
 }
 ```
 
@@ -252,11 +306,14 @@ private async validateJwtToken(token: string, req: any): Promise<any> {
 - **Collaborator Management**: Add/remove users with real-time updates
 - **Audit Trail**: Complete history of permission changes
 
-### 3. Cross-Server Token Verification
+### 3. Cross-Server Token Validation
 
-- **PDS → SDS**: SDS validates tokens issued by PDS
-- **Security Validation**: JWT signature, issuer, audience, and DPoP binding
-- **Permission Mapping**: OAuth scopes mapped to repository access levels
+- **Federated JWT Validation**: SDS validates tokens locally using JWKS fetched from the issuing PDS
+- **Dynamic Discovery**: SDS discovers OAuth metadata and JWKS automatically from any PDS
+- **Trust Model**: SDS trusts all PDS instances to correctly sign tokens and provide accurate JWKS
+- **Permission Management**: Authorization entirely through SDS database permissions
+- **No Scope Validation**: OAuth scopes are not validated by SDS
+- **JWKS Caching**: Public keys cached for optimal performance
 
 ### 4. Real-Time Collaboration
 
@@ -307,26 +364,91 @@ make build
 make dev
 ```
 
-### Running the Demo
+### Running Against Local Dev Environment
+
+**Important:** You need to run TWO separate processes - the backend dev environment AND the demo app.
+
+#### Terminal 1: Start Backend Services
 
 ```bash
-# Start SDS server
-cd packages/sds
-npm run dev
+# Start all backend services (PDS, SDS, Bsky, Ozone, etc.)
+make run-dev-env
+```
 
-# Start demo app
-cd packages/sds-demo
-npm run dev
+This will start:
+
+- **PDS (Personal Data Server)**: http://localhost:2583
+- **SDS (Shared Data Server)**: http://localhost:2585
+- **PLC Directory**: http://localhost:2582
+- **Bsky Appview**: http://localhost:2584
+- **Ozone**: http://localhost:2587
+
+#### Terminal 2: Start Demo App
+
+```bash
+# Start the demo app dev server
+cd packages/sds-demo && pnpm run dev
+```
+
+The demo app will be available at: **http://localhost:8080**
+
+#### Creating a Local Account
+
+**⚠️ IMPORTANT:** You MUST use local test handles, not production Bluesky handles!
+
+1. **Create a local account first:**
+
+   - Navigate to http://localhost:2583 (local PDS)
+   - Click "Create Account"
+   - Use a `.test` handle (e.g., `alice.test`)
+   - Set a password
+
+2. **Sign in to the demo:**
+
+   - Navigate to http://localhost:8080
+   - Click "Sign In"
+   - Enter your `.test` handle (e.g., `alice.test`)
+   - You'll be redirected to the **local PDS** OAuth screen
+   - Authorize the app
+
+3. **Create and manage organizations:**
+   - Once signed in, you can create organizations
+   - Share them with collaborators
+   - Manage permissions
+
+#### Troubleshooting
+
+If you're being redirected to Bluesky production (bsky.social):
+
+- ✅ **Check your handle**: Make sure you're using a `.test` or `.example` handle, NOT a `.bsky.social` handle
+- ✅ **Clear browser storage**: Clear all application data (cookies, localStorage, IndexedDB)
+- ✅ **Check browser console**: Look for configuration logs showing localhost URLs
+- ✅ **Verify services are running**: Ensure `make run-dev-env` is running in the background
+
+Expected console output when properly configured:
+
+```
+[SDS Demo Config] {
+  ENV: 'development',
+  isLocalhost: true,
+  hostname: 'localhost',
+  PLC_DIRECTORY_URL: 'http://localhost:2582',
+  HANDLE_RESOLVER_URL: 'http://localhost:2584',
+  SIGN_UP_URL: 'http://localhost:2583',
+  SDS_SERVER_URL: 'http://localhost:2585'
+}
 ```
 
 ## Security Considerations
 
 ### Token Security
 
-- **JWT Signature Verification**: All tokens validated against issuer public keys
-- **DPoP Binding**: Tokens bound to client private keys
-- **Audience Validation**: Tokens only valid for intended services
-- **Expiration Handling**: Automatic token refresh and validation
+- **Federated JWT Validation**: Tokens validated locally using standard OAuth 2.0 JWT verification
+- **JWKS Discovery**: Public keys fetched dynamically from issuing PDS
+- **Trust Model**: SDS trusts all PDS instances to correctly sign tokens and provide accurate JWKS
+- **DID Extraction**: User identity extracted from validated JWT claims
+- **Expiration Handling**: JWT expiration validated during signature verification
+- **DPoP Support**: Optional DPoP validation for enhanced token binding
 
 ### Permission Security
 
@@ -337,10 +459,12 @@ npm run dev
 
 ### Cross-Server Security
 
-- **Issuer Validation**: Only trusted issuers can create valid tokens
-- **Signature Verification**: Cryptographic validation of all tokens
-- **Scope Mapping**: OAuth scopes properly mapped to repository permissions
+- **Standard OAuth 2.0**: Uses widely-adopted Resource Server pattern
+- **Local Validation**: JWT validation happens locally (after JWKS fetch)
+- **Network Trust**: Relies on PDS to correctly sign tokens and provide accurate JWKS
+- **Permission Database**: All authorization managed in SDS database
 - **Rate Limiting**: Protection against abuse and DoS attacks
+- **JWKS Caching**: Minimizes external dependencies for token validation
 
 ## Future Enhancements
 
@@ -360,7 +484,7 @@ npm run dev
 
 ## Contributing
 
-This is a proof-of-concept implementation. For production use, additional security reviews, performance optimization, and comprehensive testing would be required.
+This is a reference implementation demonstrating production-grade DPoP authentication for AT Protocol resource servers. For production deployment, additional operational considerations such as performance optimization, monitoring, and comprehensive testing would be required.
 
 ## License
 
