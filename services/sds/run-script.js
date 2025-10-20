@@ -7,7 +7,7 @@ const {
   envToSecrets,
   readEnv,
   scripts,
-} = require('@atproto/pds')
+} = require('@atproto/sds')
 
 const main = async () => {
   const env = readEnv()

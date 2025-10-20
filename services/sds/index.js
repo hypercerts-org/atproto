@@ -3,29 +3,29 @@
 'use strict'
 
 const {
-  PDS,
+  SDS,
   envToCfg,
   envToSecrets,
   httpLogger,
   readEnv,
-} = require('@atproto/pds')
-const pkg = require('@atproto/pds/package.json')
+} = require('@atproto/sds')
+const pkg = require('@atproto/sds/package.json')
 
 const main = async () => {
   const env = readEnv()
   env.version ??= pkg.version
   const cfg = envToCfg(env)
   const secrets = envToSecrets(env)
-  const pds = await PDS.create(cfg, secrets)
+  const sds = await SDS.create(cfg, secrets)
 
-  await pds.start()
+  await sds.start()
 
-  httpLogger.info('pds is running')
+  httpLogger.info('sds is running')
   // Graceful shutdown (see also https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/)
   process.on('SIGTERM', async () => {
-    httpLogger.info('pds is stopping')
-    await pds.destroy()
-    httpLogger.info('pds is stopped')
+    httpLogger.info('sds is stopping')
+    await sds.destroy()
+    httpLogger.info('sds is stopped')
   })
 }
 
