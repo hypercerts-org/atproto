@@ -51,7 +51,7 @@ COPY ./packages/sds ./packages/sds
 COPY ./services/sds ./services/sds
 
 # install all deps
-RUN pnpm install --frozen-lockfile > /dev/null
+RUN pnpm install --frozen-lockfile
 # build all packages with external node_modules
 RUN pnpm build > /dev/null
 # clean up
