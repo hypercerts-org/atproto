@@ -99,6 +99,9 @@ export class TestNetworkWithSds extends TestNetworkNoAppView {
       ...params.sds,
     })
 
+    // mock before any events start flowing from pds so that we don't miss e.g. any handle resolutions.
+    mockNetworkUtilities(pds, bsky)
+
     const ozone = await TestOzone.create({
       port: ozonePort,
       plcUrl: plc.url,
@@ -135,7 +138,6 @@ export class TestNetworkWithSds extends TestNetworkNoAppView {
 
     await ozone.addAdminDid(ozoneServiceProfile.did)
 
-    mockNetworkUtilities(pds, bsky)
     await thirdPartyPds.processAll()
     await pds.processAll()
     await sds.processAll()
