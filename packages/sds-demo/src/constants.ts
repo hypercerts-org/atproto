@@ -1,7 +1,15 @@
 const { searchParams } = new URL(window.location.href)
 
 // Inserted during build
-declare const process: { env: { NODE_ENV: string } }
+declare const process: {
+  env: {
+    NODE_ENV: string
+    PLC_DIRECTORY_URL?: string
+    HANDLE_RESOLVER_URL?: string
+    SIGN_UP_URL?: string
+    SDS_SERVER_URL?: string
+  }
+}
 
 // Force development mode when running on localhost
 const isLocalhost =
@@ -14,20 +22,24 @@ export const ENV =
 
 export const PLC_DIRECTORY_URL: string | undefined =
   searchParams.get('plc_directory_url') ??
-  (ENV === 'development' ? 'http://localhost:2582' : undefined)
+  process.env.PLC_DIRECTORY_URL ??
+  (ENV === 'development' ? 'http://localhost:2582' : 'https://plc.directory')
 
 export const HANDLE_RESOLVER_URL: string =
   searchParams.get('handle_resolver') ??
+  process.env.HANDLE_RESOLVER_URL ??
   (ENV === 'development' ? 'http://localhost:2584' : 'https://bsky.social')
 
 export const SIGN_UP_URL: string =
   searchParams.get('sign_up_url') ??
-  (ENV === 'development' ? 'http://localhost:2583' : 'https://bsky.social') // Use PDS server for user auth
+  process.env.SIGN_UP_URL ??
+  (ENV === 'development' ? 'http://localhost:2583' : 'https://bsky.social')
 
-// SDS server URL for development
+// SDS server URL - must be configured via env var in production
 export const SDS_SERVER_URL: string =
   searchParams.get('sds_server_url') ??
-  (ENV === 'development' ? 'http://localhost:2585' : 'https://sds.example.com')
+  process.env.SDS_SERVER_URL ??
+  (ENV === 'development' ? 'http://localhost:2585' : '')
 
 // OAuth scopes for PDS authentication
 // Note: These scopes are issued by PDS but NOT validated by SDS during authorization.

@@ -67,7 +67,21 @@ module.exports = defineConfig((commandLineArguments) => {
               optimizer: {
                 simplify: true,
                 globals: {
-                  vars: { 'process.env.NODE_ENV': JSON.stringify(NODE_ENV) },
+                  vars: {
+                    'process.env.NODE_ENV': JSON.stringify(NODE_ENV),
+                    'process.env.PLC_DIRECTORY_URL': JSON.stringify(
+                      process.env.PLC_DIRECTORY_URL,
+                    ),
+                    'process.env.HANDLE_RESOLVER_URL': JSON.stringify(
+                      process.env.HANDLE_RESOLVER_URL,
+                    ),
+                    'process.env.SIGN_UP_URL': JSON.stringify(
+                      process.env.SIGN_UP_URL,
+                    ),
+                    'process.env.SDS_SERVER_URL': JSON.stringify(
+                      process.env.SDS_SERVER_URL,
+                    ),
+                  },
                 },
               },
             },
