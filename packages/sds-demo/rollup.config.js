@@ -4,6 +4,7 @@ const { default: commonjs } = require('@rollup/plugin-commonjs')
 const { default: html, makeHtmlAttributes } = require('@rollup/plugin-html')
 const { default: json } = require('@rollup/plugin-json')
 const { default: nodeResolve } = require('@rollup/plugin-node-resolve')
+const { default: replace } = require('@rollup/plugin-replace')
 const { default: swc } = require('@rollup/plugin-swc')
 const { defineConfig } = require('rollup')
 const {
@@ -28,6 +29,24 @@ module.exports = defineConfig((commandLineArguments) => {
       format: 'iife',
     },
     plugins: [
+      replace({
+        preventAssignment: true,
+        values: {
+          'process.env.NODE_ENV': JSON.stringify(NODE_ENV),
+          'process.env.PLC_DIRECTORY_URL': JSON.stringify(
+            process.env.PLC_DIRECTORY_URL || undefined,
+          ),
+          'process.env.HANDLE_RESOLVER_URL': JSON.stringify(
+            process.env.HANDLE_RESOLVER_URL || undefined,
+          ),
+          'process.env.SIGN_UP_URL': JSON.stringify(
+            process.env.SIGN_UP_URL || undefined,
+          ),
+          'process.env.SDS_SERVER_URL': JSON.stringify(
+            process.env.SDS_SERVER_URL || undefined,
+          ),
+        },
+      }),
       {
         name: 'resolve-swc-helpers',
         resolveId(src) {
@@ -66,23 +85,6 @@ module.exports = defineConfig((commandLineArguments) => {
               react: { runtime: 'automatic' },
               optimizer: {
                 simplify: true,
-                globals: {
-                  vars: {
-                    'process.env.NODE_ENV': JSON.stringify(NODE_ENV),
-                    'process.env.PLC_DIRECTORY_URL': JSON.stringify(
-                      process.env.PLC_DIRECTORY_URL,
-                    ),
-                    'process.env.HANDLE_RESOLVER_URL': JSON.stringify(
-                      process.env.HANDLE_RESOLVER_URL,
-                    ),
-                    'process.env.SIGN_UP_URL': JSON.stringify(
-                      process.env.SIGN_UP_URL,
-                    ),
-                    'process.env.SDS_SERVER_URL': JSON.stringify(
-                      process.env.SDS_SERVER_URL,
-                    ),
-                  },
-                },
               },
             },
           },
