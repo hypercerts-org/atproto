@@ -45,6 +45,9 @@ module.exports = defineConfig((commandLineArguments) => {
           'process.env.SDS_SERVER_URL': JSON.stringify(
             process.env.SDS_SERVER_URL || undefined,
           ),
+          'process.env.CLIENT_URL': JSON.stringify(
+            process.env.CLIENT_URL || undefined,
+          ),
         },
       }),
       {
@@ -128,6 +131,56 @@ module.exports = defineConfig((commandLineArguments) => {
         `,
       }),
       bundleManifest({ name: 'files.json', data: true }),
+      {
+        name: 'generate-client-metadata',
+        generateBundle() {
+          if (devMode) return // Skip in development (uses loopback client)
+
+          // Detect deployment URL from environment
+          // VERCEL_URL is available during Vercel builds
+          // Fallback to VERCEL_PROJECT_PRODUCTION_URL or CLIENT_URL for custom config
+          const deploymentUrl =
+            process.env.VERCEL_URL ||
+            process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+            process.env.CLIENT_URL
+
+          if (!deploymentUrl) {
+            console.warn(
+              'No deployment URL found. Set VERCEL_URL, VERCEL_PROJECT_PRODUCTION_URL, or CLIENT_URL',
+            )
+            return
+          }
+
+          // Ensure https protocol (Vercel provides URL without protocol)
+          const clientUrl = deploymentUrl.startsWith('http')
+            ? deploymentUrl
+            : `https://${deploymentUrl}`
+
+          const metadata = {
+            client_id: `${clientUrl}/client-metadata.json`,
+            client_name: 'SDS Demo',
+            client_uri: clientUrl,
+            redirect_uris: [clientUrl],
+            scope:
+              'atproto account:email account:status blob:*/* repo:* rpc:*?aud=did:web:bsky.app#bsky_appview',
+            grant_types: ['authorization_code', 'refresh_token'],
+            response_types: ['code'],
+            application_type: 'web',
+            token_endpoint_auth_method: 'none',
+            dpop_bound_access_tokens: true,
+          }
+
+          this.emitFile({
+            type: 'asset',
+            fileName: 'client-metadata.json',
+            source: JSON.stringify(metadata, null, 2),
+          })
+
+          console.log(
+            `Generated client-metadata.json for ${clientUrl}`,
+          )
+        },
+      },
 
       commandLineArguments.watch &&
         serve({

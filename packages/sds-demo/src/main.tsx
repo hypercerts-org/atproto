@@ -23,10 +23,14 @@ redirectUrl.search = new URLSearchParams({
   ...(PLC_DIRECTORY_URL && { plc_directory_url: PLC_DIRECTORY_URL }),
 }).toString()
 
-const clientId = `http://localhost?${new URLSearchParams({
-  scope: OAUTH_SCOPE,
-  redirect_uri: redirectUrl.href,
-})}`
+// Use loopback client for development, discoverable client for production
+const clientId =
+  ENV === 'development'
+    ? `http://localhost?${new URLSearchParams({
+        scope: OAUTH_SCOPE,
+        redirect_uri: redirectUrl.href,
+      })}`
+    : `${window.location.origin}/client-metadata.json`
 
 const queryClient = new QueryClient()
 
