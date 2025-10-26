@@ -14,18 +14,18 @@ import {
   SIGN_UP_URL,
 } from './constants.ts'
 
+const redirectUrl = new URL(window.location.origin)
+redirectUrl.search = new URLSearchParams({
+  env: ENV,
+  handle_resolver: HANDLE_RESOLVER_URL,
+  sign_up_url: SIGN_UP_URL,
+  scope: OAUTH_SCOPE,
+  ...(PLC_DIRECTORY_URL && { plc_directory_url: PLC_DIRECTORY_URL }),
+}).toString()
+
 const clientId = `http://localhost?${new URLSearchParams({
   scope: OAUTH_SCOPE,
-  redirect_uri: Object.assign(new URL(window.location.origin), {
-    hostname: '127.0.0.1',
-    search: new URLSearchParams({
-      env: ENV,
-      handle_resolver: HANDLE_RESOLVER_URL,
-      sign_up_url: SIGN_UP_URL,
-      scope: OAUTH_SCOPE,
-      ...(PLC_DIRECTORY_URL && { plc_directory_url: PLC_DIRECTORY_URL }),
-    }).toString(),
-  }).href,
+  redirect_uri: redirectUrl.href,
 })}`
 
 const queryClient = new QueryClient()
