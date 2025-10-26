@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @atproto/sds-demo build",
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @atproto/sds-demo... build",
   "outputDirectory": "packages/sds-demo/dist",
   "installCommand": "pnpm install --frozen-lockfile"
 }
