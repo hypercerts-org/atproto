@@ -236,7 +236,7 @@ msgstr "Select the account you would like to manage."
 #: src/routes/account/_minimalLayout/sign-in.tsx:136
 #: src/routes/account/_minimalLayout/sign-in.tsx:241
 msgid "Sign in"
-msgstr "Sign in"
+msgstr "Sign in with Hypercerts"
 
 #: src/routes/account/_minimalLayout/index.tsx:123
 msgid "Sign in with another account"

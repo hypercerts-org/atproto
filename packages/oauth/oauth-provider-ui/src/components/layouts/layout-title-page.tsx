@@ -54,6 +54,10 @@ export function LayoutTitlePage({
         )}
       >
         <div className="grid grow content-center md:justify-items-end">
+          <img
+            alt="Hypercerts Logo"
+            src="https://www.hypercerts.org/img/hypercerts_logo_horizontal.svg"
+          ></img>
           {title && (
             <h1
               key="title"
