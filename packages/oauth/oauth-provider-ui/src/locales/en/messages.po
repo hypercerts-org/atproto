@@ -455,12 +455,12 @@ msgstr "Select from an existing account"
 #: src/views/authorize/sign-in/sign-in-form.tsx:141
 msgctxt "verb"
 msgid "Sign in"
-msgstr "Sign in"
+msgstr "Sign in with Hypercerts"
 
 #: src/views/authorize/sign-in/sign-in-view.tsx:52
 msgctxt "noun"
 msgid "Sign in"
-msgstr "Sign in"
+msgstr "Sign in with Hypercerts"
 
 #. placeholder {0}: account.name
 #: src/views/authorize/sign-in/sign-in-picker.tsx:78
