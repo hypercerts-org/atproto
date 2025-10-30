@@ -59,7 +59,7 @@ export default function (server: Server, ctx: SdsAppContext) {
       const repoDid = account.did
 
       // OAuth permission checks (same as original PDS)
-      if (auth.credentials.type === 'oauth') {
+      if (auth.credentials.type === 'oauth' && auth.credentials.permissions) {
         auth.credentials.permissions.assertRepo({
           action: 'create',
           collection,
