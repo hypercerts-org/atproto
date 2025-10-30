@@ -1,5 +1,6 @@
 import { AppContext } from '../../../../context'
 import { Server } from '../../../../lexicon'
+import { SdsAppContext } from '../../../../sds-context'
 import applyWrites from './applyWrites'
 import createRecord from './createRecord'
 import deleteRecord from './deleteRecord'
@@ -13,7 +14,10 @@ import uploadBlob from './uploadBlob'
 
 export default function (server: Server, ctx: AppContext) {
   applyWrites(server, ctx)
-  createRecord(server, ctx)
+  // Skip createRecord if SDS - it will be registered by the SDS-specific version
+  if (!(ctx instanceof SdsAppContext)) {
+    createRecord(server, ctx)
+  }
   deleteRecord(server, ctx)
   describeRepo(server, ctx)
   getRecord(server, ctx)
