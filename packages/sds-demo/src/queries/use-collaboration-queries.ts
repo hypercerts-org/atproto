@@ -190,16 +190,24 @@ export function useListCollaboratorsQuery(repoDid: string, enabled = true) {
       }
       return await listRepositoryCollaborators(repoDid, auth.agent)
     },
-    enabled: enabled && !!repoDid && !!auth.agent,
+    enabled: enabled && !!repoDid && !!auth.agent && auth.signedIn,
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (renamed from cacheTime)
     retry: (failureCount, error) => {
-      // Don't retry on authentication errors
-      if (error instanceof Error && error.message.includes('authentication')) {
-        return false
+      // Don't retry on authentication errors or token refresh errors
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase()
+        if (
+          errorMsg.includes('authentication') ||
+          errorMsg.includes('token') ||
+          errorMsg.includes('session was deleted')
+        ) {
+          return false
+        }
       }
       return failureCount < 3
     },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   })
 }
 
@@ -221,16 +229,24 @@ export function useGetPermissionsQuery(
       }
       return await getRepositoryPermissions(repoDid, auth.agent, userDid)
     },
-    enabled: enabled && !!repoDid && !!userDid && !!auth.agent,
+    enabled: enabled && !!repoDid && !!userDid && !!auth.agent && auth.signedIn,
     staleTime: 60 * 1000, // Consider data fresh for 1 minute
-    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (renamed from cacheTime)
     retry: (failureCount, error) => {
-      // Don't retry on authentication errors
-      if (error instanceof Error && error.message.includes('authentication')) {
-        return false
+      // Don't retry on authentication errors or token refresh errors
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase()
+        if (
+          errorMsg.includes('authentication') ||
+          errorMsg.includes('token') ||
+          errorMsg.includes('session was deleted')
+        ) {
+          return false
+        }
       }
       return failureCount < 3
     },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   })
 }
 

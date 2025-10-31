@@ -391,6 +391,7 @@ const sdsLexicons: LexiconDoc[] = [
 export class SdsAgent extends Agent {
   private oauthSession: OAuthSession
   private sdsDpopFetch: Fetch<unknown>
+  private tokenPromise: Promise<any> | null = null
 
   constructor(session: OAuthSession) {
     // Create main agent for PDS calls
@@ -444,6 +445,30 @@ export class SdsAgent extends Agent {
     }
   }
 
+  /**
+   * Get token with locking to prevent race conditions
+   * Multiple simultaneous calls will wait for the same token fetch
+   */
+  private async getTokenSetSafe() {
+    // If there's already a token fetch in progress, wait for it
+    if (this.tokenPromise) {
+      return this.tokenPromise
+    }
+
+    // Create new token fetch promise
+    this.tokenPromise = (async () => {
+      try {
+        const tokenSet = await (this.oauthSession as any).getTokenSet('auto')
+        return tokenSet
+      } finally {
+        // Clear the promise after completion (success or failure)
+        this.tokenPromise = null
+      }
+    })()
+
+    return this.tokenPromise
+  }
+
   // Override the call method to route SDS calls to the SDS server
   async call(methodId: string, params?: any, data?: any, opts?: any) {
     // Route SDS-specific calls to the SDS server
@@ -453,8 +478,8 @@ export class SdsAgent extends Agent {
       )
 
       try {
-        // Get the access token from the OAuth session
-        const tokenSet = await (this.oauthSession as any).getTokenSet('auto')
+        // Get the access token from the OAuth session with locking
+        const tokenSet = await this.getTokenSetSafe()
         if (!tokenSet?.access_token) {
           throw new Error('No access token available for SDS request')
         }

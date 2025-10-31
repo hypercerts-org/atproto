@@ -17,7 +17,11 @@ export function RepositoryCard({
   onManageCollaborators,
 }: RepositoryCardProps) {
   // Query to get collaborator count for this repository
-  const collaboratorsQuery = useListCollaboratorsQuery(repository.did, repository.accessType === 'owner')
+  // Only enable for owners to reduce simultaneous API calls on mount
+  const collaboratorsQuery = useListCollaboratorsQuery(
+    repository.did,
+    repository.accessType === 'owner',
+  )
   const collaboratorCount = collaboratorsQuery.data?.collaborators?.length || 0
 
   return (
@@ -88,8 +92,7 @@ export function RepositoryCard({
           <span className="text-sm text-gray-500">
             {collaboratorCount > 0
               ? `${collaboratorCount} collaborator${collaboratorCount === 1 ? '' : 's'}`
-              : 'No collaborators'
-            }
+              : 'No collaborators'}
           </span>
 
           {/* Manage Collaborators Button - Only show for owners */}

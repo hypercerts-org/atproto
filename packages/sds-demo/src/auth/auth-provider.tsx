@@ -63,7 +63,7 @@ export const AuthProvider = ({
       signOut: () => session.signOut(),
       refresh: () => session.getTokenInfo(true),
     }
-  }, [session])
+  }, [session?.sub]) // Only recreate when the subject changes, not on every session update
 
   const signedOutValue = useMemo<AuthContextValueSignedOut>(() => {
     return {

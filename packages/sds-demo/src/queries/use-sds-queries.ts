@@ -72,9 +72,21 @@ export function useListOrganizationsQuery() {
       }
     },
     enabled: auth.signedIn && !!auth.session?.did && !!auth.agent,
-    // Add retry with exponential backoff to handle transient errors during OAuth flow
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Retry with exponential backoff, but don't retry on session/token errors
+    retry: (failureCount, error) => {
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase()
+        if (
+          errorMsg.includes('authentication') ||
+          errorMsg.includes('token') ||
+          errorMsg.includes('session was deleted')
+        ) {
+          return false
+        }
+      }
+      return failureCount < 3
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   })
 }
 
