@@ -140,8 +140,8 @@ module.exports = defineConfig((commandLineArguments) => {
           // VERCEL_URL is available during Vercel builds
           // Fallback to VERCEL_PROJECT_PRODUCTION_URL or CLIENT_URL for custom config
           const deploymentUrl =
-            process.env.VERCEL_URL ||
             process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+            process.env.VERCEL_URL ||
             process.env.CLIENT_URL
 
           if (!deploymentUrl) {
