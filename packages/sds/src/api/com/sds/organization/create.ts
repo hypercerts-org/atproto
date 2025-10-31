@@ -1,8 +1,9 @@
 import * as plc from '@did-plc/lib'
 import { Secp256k1Keypair } from '@atproto/crypto'
-import { InvalidRequestError } from '@atproto/xrpc-server'
+import { InvalidRequestError, XRPCError } from '@atproto/xrpc-server'
 import { AccountStatus } from '../../../../account-manager/helpers/account'
 import { Server } from '../../../../lexicon'
+import { httpLogger } from '../../../../logger'
 import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
@@ -30,6 +31,10 @@ export default function (server: Server, ctx: SdsAppContext) {
       console.log(
         '[SDS] Organization create handler - creator DID:',
         creatorDid,
+      )
+      httpLogger.info(
+        { creatorDid },
+        'organization create handler - processing request',
       )
 
       if (!name?.trim()) {
@@ -114,8 +119,31 @@ export default function (server: Server, ctx: SdsAppContext) {
         }
       } catch (error) {
         console.error('Error creating organization:', error)
+        httpLogger.error(
+          {
+            err: error,
+            type: error?.constructor?.name,
+            message: error instanceof Error ? error.message : String(error),
+            messageLength: error instanceof Error ? error.message?.length : -1,
+            messageJSON:
+              error instanceof Error ? JSON.stringify(error.message) : 'N/A',
+          },
+          'organization create handler error',
+        )
+
+        // Re-throw the original error if it's already an XRPC error
+        if (error instanceof XRPCError) {
+          throw error
+        }
+
+        // Extract meaningful error message
+        const errorMsg =
+          error instanceof Error && error.message?.trim()
+            ? error.message
+            : 'Unknown error occurred'
+
         throw new InvalidRequestError(
-          `Failed to create organization: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Failed to create organization: ${errorMsg}`,
         )
       }
     },
