@@ -53,7 +53,7 @@ export function createAuthorizationPageMiddleware<
       res.setHeader('Cache-Control', 'no-store')
       res.setHeader('Pragma', 'no-cache')
 
-      validateFetchSite(req, ['cross-site', 'none'])
+      validateFetchSite(req, ['cross-site', 'same-site', 'none'])
       validateFetchMode(req, ['navigate'])
       validateFetchDest(req, ['document'])
       validateOrigin(req, issuerOrigin)
