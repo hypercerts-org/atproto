@@ -22,15 +22,15 @@ COPY ./packages/xrpc-server ./packages/xrpc-server
 COPY ./services/pds ./services/pds
 
 # install all deps
-RUN pnpm install --frozen-lockfile > /dev/null
+RUN pnpm install --frozen-lockfile
 # build all packages with external node_modules
-RUN ATP_BUILD_SHALLOW=true pnpm build > /dev/null
+RUN ATP_BUILD_SHALLOW=true pnpm build
 # update main with publishConfig
-RUN pnpm update-main-to-dist > /dev/null
+RUN pnpm update-main-to-dist
 # clean up
 RUN rm -rf node_modules
 # install only prod deps, hoisted to root node_modules dir
-RUN pnpm install --prod --shamefully-hoist --frozen-lockfile --prefer-offline > /dev/null
+RUN pnpm install --prod --shamefully-hoist --frozen-lockfile --prefer-offline
 
 WORKDIR services/pds
 
