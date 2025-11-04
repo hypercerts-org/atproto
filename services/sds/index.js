@@ -46,15 +46,22 @@ const main = async () => {
   })
 
   // TLS check endpoint for Caddy on-demand TLS
+  // If no domain param, just return success (for Railway health checks)
   sds.app.get('/tls-check', (req, res) => {
+    const { domain } = req.query
+    if (!domain || typeof domain !== 'string') {
+      // No domain param - likely a health check from Railway/Caddy
+      return res.json({ success: true, service: 'sds' })
+    }
+    // Domain param provided - validate it
     checkHandleRoute(sds, req, res)
   })
 
   // Graceful shutdown (see also https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/)
   process.on('SIGTERM', async () => {
-    httpLogger.info('sds is stopping')
+    httpLogger.info('SDS is stopping')
     await sds.destroy()
-    httpLogger.info('sds is stopped')
+    httpLogger.info('SDS is stopped')
   })
 }
 

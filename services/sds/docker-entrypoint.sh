@@ -1,10 +1,17 @@
 #!/bin/sh
 set -e
 
+# Debug: Log Railway's PORT and current PDS_PORT
+echo "Railway PORT: ${PORT:-not set}"
+echo "PDS_PORT: ${PDS_PORT:-not set}"
+
 # Railway sets PORT environment variable, map it to PDS_PORT if not already set
 if [ -n "$PORT" ] && [ -z "$PDS_PORT" ]; then
   export PDS_PORT="$PORT"
+  echo "Mapped Railway PORT ($PORT) to PDS_PORT"
 fi
+
+echo "Final PDS_PORT: ${PDS_PORT:-not set}"
 
 # Fix permissions for data directory if it exists and is mounted
 # This handles Railway volume mounts that may have wrong permissions

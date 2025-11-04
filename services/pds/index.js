@@ -16,16 +16,34 @@ const main = async () => {
   env.version ??= pkg.version
   const cfg = envToCfg(env)
   const secrets = envToSecrets(env)
+
+  httpLogger.info(
+    `Starting PDS with port: ${cfg.service.port}, hostname: ${cfg.service.hostname}`,
+  )
+
   const pds = await PDS.create(cfg, secrets)
 
   await pds.start()
 
-  httpLogger.info('pds is running')
+  const address = pds.server?.address()
+  const actualPort = address
+    ? typeof address === 'string'
+      ? address
+      : address.port
+    : 'unknown'
+  const actualAddress = address
+    ? typeof address === 'string'
+      ? address
+      : `${address.address}:${address.port}`
+    : 'unknown'
+  httpLogger.info(
+    `PDS is running on ${actualAddress} (port: ${actualPort}, hostname: ${cfg.service.hostname})`,
+  )
   // Graceful shutdown (see also https://aws.amazon.com/blogs/containers/graceful-shutdowns-with-ecs/)
   process.on('SIGTERM', async () => {
-    httpLogger.info('pds is stopping')
+    httpLogger.info('PDS is stopping')
     await pds.destroy()
-    httpLogger.info('pds is stopped')
+    httpLogger.info('PDS is stopped')
   })
 }
 
