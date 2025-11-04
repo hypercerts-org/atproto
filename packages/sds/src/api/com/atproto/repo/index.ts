@@ -13,16 +13,16 @@ import putRecord from './putRecord'
 import uploadBlob from './uploadBlob'
 
 export default function (server: Server, ctx: AppContext) {
-  applyWrites(server, ctx)
-  // Skip createRecord if SDS - it will be registered by the SDS-specific version
+  // Skip methods that use findAccount if SDS - they will be registered by SDS-specific versions
   if (!(ctx instanceof SdsAppContext)) {
+    applyWrites(server, ctx)
     createRecord(server, ctx)
+    deleteRecord(server, ctx)
+    putRecord(server, ctx)
   }
-  deleteRecord(server, ctx)
   describeRepo(server, ctx)
   getRecord(server, ctx)
   listRecords(server, ctx)
-  putRecord(server, ctx)
   uploadBlob(server, ctx)
   listMissingBlobs(server, ctx)
   importRepo(server, ctx)
