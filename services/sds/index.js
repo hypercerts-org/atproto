@@ -31,7 +31,19 @@ const main = async () => {
       ? address
       : address.port
     : 'unknown'
-  httpLogger.info(`SDS is running on port ${actualPort}`)
+  const actualAddress = address
+    ? typeof address === 'string'
+      ? address
+      : `${address.address}:${address.port}`
+    : 'unknown'
+  httpLogger.info(
+    `SDS is running on ${actualAddress} (port: ${actualPort}, hostname: ${cfg.service.hostname})`,
+  )
+
+  // Health check endpoint for Railway/reverse proxy
+  sds.app.get('/health-check', (req, res) => {
+    res.json({ service: 'sds', status: 'ok', port: actualPort })
+  })
 
   // TLS check endpoint for Caddy on-demand TLS
   sds.app.get('/tls-check', (req, res) => {
