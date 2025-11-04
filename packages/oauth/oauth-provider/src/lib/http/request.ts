@@ -50,6 +50,7 @@ export function validateFetchDest(
     | null
     | 'document'
     | 'embed'
+    | 'empty'
     | 'font'
     | 'image'
     | 'manifest'

@@ -62,8 +62,9 @@ export function parseAssetsManifest(manifestPath: string) {
     try {
       // Allow "null" (ie. no header) to allow loading assets outside of a
       // fetch context (not from a web page).
+      // Also allow "empty" which browsers send for source maps and other non-standard destinations.
       validateFetchSite(req, [null, 'none', 'cross-site', 'same-origin'])
-      validateFetchDest(req, [null, 'document', 'style', 'script'])
+      validateFetchDest(req, [null, 'document', 'style', 'script', 'empty'])
     } catch (err) {
       return next(err)
     }
