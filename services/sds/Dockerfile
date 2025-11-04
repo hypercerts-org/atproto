@@ -64,25 +64,29 @@ WORKDIR services/sds
 # Uses assets from build stage to reduce build size
 FROM node:20.11-alpine3.18
 
-RUN apk add --update dumb-init
+RUN apk add --update dumb-init su-exec
 
 # Avoid zombie processes, handle signal forwarding
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /app/services/sds
 COPY --from=build /app /app
-RUN mkdir /app/data && chown node /app/data
+COPY --from=build /app/services/sds/docker-entrypoint.sh /app/services/sds/docker-entrypoint.sh
 
-VOLUME /app/data
+# Create data directory and entrypoint script, fix permissions
+RUN mkdir -p /app/data && \
+    chmod +x /app/services/sds/docker-entrypoint.sh
+
 EXPOSE 3000
 ENV PDS_PORT=3000
 ENV NODE_ENV=production
+ENV PDS_DATA_DIRECTORY=/app/data
 # potential perf issues w/ io_uring on this version of node
 ENV UV_USE_IO_URING=0
 
-# https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md#non-root-user
-USER node
-CMD ["node", "--heapsnapshot-signal=SIGUSR2", "--enable-source-maps", "--require=./tracer.js", "index.js"]
+# Run as root initially so entrypoint can fix permissions, then switch to node
+# The entrypoint script will handle switching to node user
+CMD ["/app/services/sds/docker-entrypoint.sh", "node", "--heapsnapshot-signal=SIGUSR2", "--enable-source-maps", "--require=./tracer.js", "index.js"]
 
 LABEL org.opencontainers.image.source=https://github.com/hypercerts/atproto
 LABEL org.opencontainers.image.description="ATP Shared Data Server (SDS)"
