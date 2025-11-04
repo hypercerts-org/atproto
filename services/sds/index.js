@@ -16,11 +16,22 @@ const main = async () => {
   env.version ??= pkg.version
   const cfg = envToCfg(env)
   const secrets = envToSecrets(env)
+
+  httpLogger.info(
+    `Starting SDS with port: ${cfg.service.port}, hostname: ${cfg.service.hostname}`,
+  )
+
   const sds = await SDS.create(cfg, secrets)
 
   await sds.start()
 
-  httpLogger.info('sds is running')
+  const address = sds.server?.address()
+  const actualPort = address
+    ? typeof address === 'string'
+      ? address
+      : address.port
+    : 'unknown'
+  httpLogger.info(`SDS is running on port ${actualPort}`)
 
   // TLS check endpoint for Caddy on-demand TLS
   sds.app.get('/tls-check', (req, res) => {
@@ -48,7 +59,7 @@ async function checkHandleRoute(sds, req, res) {
       return res.json({ success: true })
     }
     const isHostedHandle = sds.ctx.cfg.identity.serviceHandleDomains.find(
-      (avail) => domain.endsWith(avail)
+      (avail) => domain.endsWith(avail),
     )
     if (!isHostedHandle) {
       return res.status(400).json({

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+# Railway sets PORT environment variable, map it to PDS_PORT if not already set
+if [ -n "$PORT" ] && [ -z "$PDS_PORT" ]; then
+  export PDS_PORT="$PORT"
+fi
+
 # Fix permissions for data directory if it exists and is mounted
 # This handles Railway volume mounts that may have wrong permissions
 if [ -n "$PDS_DATA_DIRECTORY" ]; then
