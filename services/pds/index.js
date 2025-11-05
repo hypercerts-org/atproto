@@ -26,6 +26,22 @@ const main = async () => {
   env.version ??= pkg.version
   const cfg = envToCfg(env)
   const secrets = envToSecrets(env)
+  
+  // Run database migrations before starting PDS
+  const { Database } = require('@atproto/pds')
+  if (cfg.db.dialect === 'sqlite') {
+    try {
+      httpLogger.info('Running database migrations...')
+      const db = Database.sqlite(cfg.db.location)
+      const results = await db.migrateToLatestOrThrow()
+      httpLogger.info({ results }, 'Database migrations completed')
+      await db.close()
+    } catch (err) {
+      httpLogger.error({ err }, 'Database migration failed')
+      throw err
+    }
+  }
+  
   const pds = await PDS.create(cfg, secrets)
 
   await pds.start()
