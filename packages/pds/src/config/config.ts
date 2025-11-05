@@ -2,6 +2,7 @@ import os from 'node:os'
 import path from 'node:path'
 import assert from 'node:assert'
 import { DAY, HOUR, SECOND } from '@atproto/common'
+import { BrandingInput } from '@atproto/oauth-provider'
 import { ServerEnvironment } from './env'
 
 // off-config but still from env:
@@ -223,6 +224,47 @@ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
 
   const crawlersCfg: ServerConfig['crawlers'] = env.crawlers ?? []
 
+  const publicUrl = serviceCfg.publicUrl
+  const oauthCfg: ServerConfig['oauth'] = {
+    issuer: publicUrl,
+    provider: {
+      branding: {
+        name: env.serviceName ?? `${hostname} Entryway`,
+        logo: env.logoUrl,
+        colors: {
+          primary: env.primaryColor,
+          error: env.errorColor,
+        },
+        links: [
+          env.homeUrl && {
+            title: { en: 'Home' },
+            href: env.homeUrl,
+            rel: 'canonical' as const,
+          },
+          env.termsOfServiceUrl && {
+            title: { en: 'Terms of Service' },
+            href: env.termsOfServiceUrl,
+            rel: 'terms-of-service' as const,
+          },
+          env.privacyPolicyUrl && {
+            title: { en: 'Privacy Policy' },
+            href: env.privacyPolicyUrl,
+            rel: 'privacy-policy' as const,
+          },
+          env.supportUrl && {
+            title: { en: 'Support' },
+            href: env.supportUrl,
+            rel: 'help' as const,
+          },
+        ].filter(
+          <T extends { href?: string }>(f: T): f is T & { href: string } =>
+            f != null && f.href != null && f.href !== '',
+        ),
+      },
+      trustedClients: env.trustedOAuthClients,
+    },
+  }
+
   return {
     service: serviceCfg,
     db: dbCfg,
@@ -239,6 +281,7 @@ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
     rateLimits: rateLimitsCfg,
     activator: activatorCfg,
     crawlers: crawlersCfg,
+    oauth: oauthCfg,
   }
 }
 
@@ -258,6 +301,7 @@ export type ServerConfig = {
   rateLimits: RateLimitsConfig
   activator: ActivatorConfig
   crawlers: string[]
+  oauth: OAuthConfig
 }
 
 export type ServiceConfig = {
@@ -384,4 +428,12 @@ export type BksyAppViewConfig = {
 export type ModServiceConfig = {
   url: string
   did: string
+}
+
+export type OAuthConfig = {
+  issuer: string
+  provider: {
+    branding: BrandingInput
+    trustedClients?: string[]
+  }
 }

@@ -7,6 +7,12 @@ import { IdResolver } from '@atproto/identity'
 import { AtpAgent } from '@atproto/api'
 import { KmsKeypair, S3BlobStore } from '@atproto/aws'
 import { createServiceAuthHeaders } from '@atproto/xrpc-server'
+import {
+  AccessTokenMode,
+  JoseKey,
+  OAuthProvider,
+  OAuthVerifier,
+} from '@atproto/oauth-provider'
 import { Database } from './db'
 import { ServerConfig, ServerSecrets } from './config'
 import { AuthVerifier, getAuthKeys } from './auth-verifier'
@@ -53,6 +59,7 @@ export type AppContextOptions = {
   twilio?: TwilioClient
   signupLimiter: SignupLimiter
   signupActivator: SignupActivator
+  oauthProvider?: OAuthProvider
   cfg: ServerConfig
 }
 
@@ -80,6 +87,7 @@ export class AppContext {
   public twilio?: TwilioClient
   public signupLimiter: SignupLimiter
   public signupActivator: SignupActivator
+  public oauthProvider?: OAuthProvider
   public cfg: ServerConfig
 
   constructor(opts: AppContextOptions) {
@@ -106,6 +114,7 @@ export class AppContext {
     this.twilio = opts.twilio
     this.signupLimiter = opts.signupLimiter
     this.signupActivator = opts.signupActivator
+    this.oauthProvider = opts.oauthProvider
     this.cfg = opts.cfg
   }
 
@@ -264,6 +273,45 @@ export class AppContext {
 
     const pdsAgents = new PdsAgents()
 
+    // OAuth Provider initialization
+    // NOTE: Full OAuth provider initialization requires creating an OAuthStore adapter
+    // that implements AccountStore, RequestStore, DeviceStore, LexiconStore, TokenStore
+    // interfaces using entryway's Services structure (AccountService, AuthService, etc.)
+    // For now, oauthProvider can be provided via overrides parameter.
+    // When initialized, it will expose OAuth authorization server endpoints via auth-routes.ts
+    let oauthProvider: OAuthProvider | undefined = undefined
+    
+    // TODO: Initialize OAuthProvider here when OAuthStore adapter is implemented
+    // This would require:
+    // 1. Creating an OAuthStore adapter for entryway's Services
+    // 2. Building lexicon resolver
+    // 3. Creating JWT signing key from secrets.jwtSigningKey
+    // 4. Setting up DPoP secret (needs to be added to ServerSecrets)
+    // Example structure:
+    // if (cfg.oauth.provider) {
+    //   const jwtSecretKey = await createSecretKeyObject(secrets.jwtSecret)
+    //   oauthProvider = new OAuthProvider({
+    //     issuer: cfg.oauth.issuer,
+    //     keyset: [await JoseKey.fromKeyLike(jwtSecretKey, undefined, 'HS256')],
+    //     store: new EntrywayOAuthStore(...), // Needs to be created
+    //     redis: redisScratch,
+    //     dpopSecret: secrets.dpopSecret, // Needs to be added to secrets
+    //     inviteCodeRequired: cfg.invites.required,
+    //     availableUserDomains: cfg.identity.serviceHandleDomains,
+    //     branding: cfg.oauth.provider.branding,
+    //     lexiconResolver: ..., // Needs lexicon resolver
+    //     metadata: {
+    //       protected_resources: [new URL(cfg.oauth.issuer).origin],
+    //     },
+    //     accessTokenMode: AccessTokenMode.light,
+    //     getClientInfo(clientId) {
+    //       return {
+    //         isTrusted: cfg.oauth.provider?.trustedClients?.includes(clientId),
+    //       }
+    //     },
+    //   })
+    // }
+
     return new AppContext({
       db,
       blobstore,
@@ -288,6 +336,7 @@ export class AppContext {
       twilio,
       signupLimiter,
       signupActivator,
+      oauthProvider,
       cfg,
       ...(overrides ?? {}),
     })

@@ -17,6 +17,7 @@ import {
 import { DAY, HOUR, MINUTE } from '@atproto/common'
 import API from './api'
 import * as basicRoutes from './basic-routes'
+import * as authRoutes from './auth-routes'
 import * as wellKnown from './well-known'
 import * as error from './error'
 import { dbLogger, loggerMiddleware, seqLogger } from './logger'
@@ -116,6 +117,7 @@ export class PDS {
 
     server = API(server, ctx)
 
+    app.use(authRoutes.createRouter(ctx)) // Before CORS
     app.use(basicRoutes.createRouter(ctx))
     app.use(wellKnown.createRouter(ctx))
     app.use(server.xrpc.router)

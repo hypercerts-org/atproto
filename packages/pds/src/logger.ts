@@ -14,6 +14,37 @@ export const labelerLogger = subsystemLogger('pds:labler')
 export const crawlerLogger = subsystemLogger('pds:crawler')
 export const twilioLogger = subsystemLogger('pds:twilio')
 export const httpLogger = subsystemLogger('pds')
+export const oauthLogger = subsystemLogger('pds:oauth')
+
+export function reqSerializer(req: any) {
+  const serialized = pino.stdSerializers.req(req)
+  const authHeader = serialized.headers.authorization || ''
+  let auth: string | undefined = undefined
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice('Bearer '.length)
+    const { sub } = jose.decodeJwt(token)
+    if (sub) {
+      auth = 'Bearer ' + sub
+    } else {
+      auth = 'Bearer Invalid'
+    }
+  }
+  if (authHeader.startsWith('Basic ')) {
+    const parsed = parseBasicAuth(authHeader)
+    if (!parsed) {
+      auth = 'Basic Invalid'
+    } else {
+      auth = 'Basic ' + parsed.username
+    }
+  }
+  return {
+    ...serialized,
+    headers: {
+      ...serialized.headers,
+      authorization: auth,
+    },
+  }
+}
 
 export const loggerMiddleware = pinoHttp({
   logger: httpLogger,
@@ -24,34 +55,6 @@ export const loggerMiddleware = pinoHttp({
         message: err?.message,
       }
     },
-    req: (req) => {
-      const serialized = pino.stdSerializers.req(req)
-      const authHeader = serialized.headers.authorization || ''
-      let auth: string | undefined = undefined
-      if (authHeader.startsWith('Bearer ')) {
-        const token = authHeader.slice('Bearer '.length)
-        const { sub } = jose.decodeJwt(token)
-        if (sub) {
-          auth = 'Bearer ' + sub
-        } else {
-          auth = 'Bearer Invalid'
-        }
-      }
-      if (authHeader.startsWith('Basic ')) {
-        const parsed = parseBasicAuth(authHeader)
-        if (!parsed) {
-          auth = 'Basic Invalid'
-        } else {
-          auth = 'Basic ' + parsed.username
-        }
-      }
-      return {
-        ...serialized,
-        headers: {
-          ...serialized.headers,
-          authorization: auth,
-        },
-      }
-    },
+    req: reqSerializer,
   },
 })
