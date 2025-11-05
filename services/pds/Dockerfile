@@ -26,8 +26,9 @@ COPY ./services/pds ./services/pds
 
 # install all deps
 RUN pnpm install --frozen-lockfile
-# Rebuild sharp for Alpine/musl (pnpm ignores build scripts, so reinstall with npm)
+# Rebuild native modules for Alpine/musl (pnpm ignores build scripts, so reinstall with npm)
 RUN find /app/node_modules -name "sharp" -type d -path "*/node_modules/sharp" | head -1 | xargs -I {} sh -c 'cd {} && rm -rf build && npm_config_platform=linuxmusl npm_config_arch=x64 npm install --ignore-scripts=false'
+RUN find /app/node_modules -name "better-sqlite3" -type d -path "*/node_modules/better-sqlite3" | head -1 | xargs -I {} sh -c 'cd {} && rm -rf build && npm_config_platform=linuxmusl npm_config_arch=x64 npm install --ignore-scripts=false'
 # build all packages with external node_modules
 RUN ATP_BUILD_SHALLOW=true pnpm build
 # update main with publishConfig
@@ -36,8 +37,9 @@ RUN pnpm update-main-to-dist
 RUN rm -rf node_modules
 # install only prod deps, hoisted to root node_modules dir
 RUN pnpm install --prod --shamefully-hoist --frozen-lockfile --prefer-offline
-# Rebuild sharp again after production install
+# Rebuild native modules again after production install
 RUN find /app/node_modules -name "sharp" -type d -path "*/node_modules/sharp" | head -1 | xargs -I {} sh -c 'cd {} && rm -rf build && npm_config_platform=linuxmusl npm_config_arch=x64 npm install --ignore-scripts=false'
+RUN find /app/node_modules -name "better-sqlite3" -type d -path "*/node_modules/better-sqlite3" | head -1 | xargs -I {} sh -c 'cd {} && rm -rf build && npm_config_platform=linuxmusl npm_config_arch=x64 npm install --ignore-scripts=false'
 
 WORKDIR services/pds
 
