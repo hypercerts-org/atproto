@@ -31,11 +31,11 @@ const MAX_LENGTH = 18
 const MIN_LENGTH = 3
 
 /**
- * Spec limit is 253, but in practice, we've targeted 30 characters in handles.
+ * Spec limit is 253, but in practice, we've targeted 64 characters in handles.
  *
  * @see {@link https://atproto.com/specs/handle | ATProto Handle Spec}
  */
-const MAX_FULL_LENGTH = 30
+const MAX_FULL_LENGTH = 64
 
 type ValidDomain = `.${string}`
 const isValidDomain = (domain: string): domain is ValidDomain =>
