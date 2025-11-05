@@ -49,22 +49,35 @@ FROM node:18-alpine
 # Install runtime dependencies for sharp (vips-cpp provides libvips-cpp.so.42)
 RUN apk add --no-cache vips vips-cpp
 
-RUN apk add --update dumb-init
+RUN apk add --update dumb-init su-exec
 
 # Avoid zombie processes, handle signal forwarding
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /app/services/pds
 COPY --from=build /app /app
-RUN mkdir /app/data && chown node /app/data
+# Create entrypoint script to fix permissions on Railway volume mount
+RUN echo '#!/bin/sh' > /app/services/pds/docker-entrypoint.sh && \
+    echo 'set -e' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'if [ -d /app/data ]; then' >> /app/services/pds/docker-entrypoint.sh && \
+    echo '  chown -R node:node /app/data 2>/dev/null || true' >> /app/services/pds/docker-entrypoint.sh && \
+    echo '  chmod -R 755 /app/data 2>/dev/null || true' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'fi' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'mkdir -p /app/data' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'chown -R node:node /app/data' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'chmod 755 /app/data' >> /app/services/pds/docker-entrypoint.sh && \
+    echo 'exec su-exec node "$@"' >> /app/services/pds/docker-entrypoint.sh && \
+    chmod +x /app/services/pds/docker-entrypoint.sh
+# Create data directory with proper permissions (Railway volume will mount here)
+RUN mkdir -p /app/data && chown -R node:node /app/data && chmod 755 /app/data
 
 EXPOSE 3000
 ENV PDS_PORT=3000
 ENV NODE_ENV=production
 
-# https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md#non-root-user
-USER node
-CMD ["node", "--heapsnapshot-signal=SIGUSR2", "--enable-source-maps", "index.js"]
+# Run as root initially so entrypoint can fix permissions, then switch to node
+# The entrypoint script will handle switching to node user
+CMD ["/app/services/pds/docker-entrypoint.sh", "node", "--heapsnapshot-signal=SIGUSR2", "--enable-source-maps", "index.js"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/atproto
 LABEL org.opencontainers.image.description="ATP Personal Data Server (PDS)"
