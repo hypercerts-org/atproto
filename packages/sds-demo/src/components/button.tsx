@@ -54,9 +54,11 @@ export function Button({
         'inline-block rounded-md',
         'focus:outline-none focus:ring-2 focus:ring-offset-2',
         'transition duration-300 ease-in-out',
-        transparent
-          ? 'bg-transparent text-purple-600 hover:bg-purple-100 focus:ring-purple-500'
-          : 'bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-800',
+        disabled || showProgress
+          ? 'cursor-not-allowed bg-gray-400 text-gray-200'
+          : transparent
+            ? 'bg-transparent text-purple-600 hover:bg-purple-100 focus:ring-purple-500'
+            : 'bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-800',
         sizeClass,
         className,
       ].join(' ')}

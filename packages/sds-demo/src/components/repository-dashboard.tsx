@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { InvalidHandleError, ensureValidHandle } from '@atproto/syntax'
 import { useAuthContext } from '../auth/auth-provider.tsx'
+import { SDS_SERVER_URL } from '../constants.ts'
 import {
   Repository,
   useRepositoryContext,
 } from '../contexts/repository-context.tsx'
 import {
+  useCheckHandleAvailabilityQuery,
   useCreateRecordMutation,
   useListOrganizationsQuery,
 } from '../queries/use-sds-queries.ts'
@@ -50,11 +53,15 @@ export function RepositoryDashboard() {
   const { repositories, addRepository, setSelectedRepo } =
     useRepositoryContext()
   const [loading, setLoading] = useState(false)
-  const [selectedRepo, setSelectedRepoLocal] = useState<string | null>(null)
+  const [selectedRepo] = useState<string | null>(null)
   const [newPostText, setNewPostText] = useState('')
   const [showCreateOrg, setShowCreateOrg] = useState(false)
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgDescription, setNewOrgDescription] = useState('')
+  const [handleValidationError, setHandleValidationError] = useState<
+    string | null
+  >(null)
+  const [debouncedHandle, setDebouncedHandle] = useState<string | null>(null)
   const [collaborationModal, setCollaborationModal] = useState<{
     isOpen: boolean
     repositoryDid: string
@@ -67,6 +74,79 @@ export function RepositoryDashboard() {
 
   const createRecordMutation = useCreateRecordMutation()
   const organizationsQuery = useListOrganizationsQuery()
+
+  // Debounce handle input for availability checking (1 second delay)
+  useEffect(() => {
+    if (!newOrgName.trim()) {
+      setDebouncedHandle(null)
+      return
+    }
+
+    const sdsHostname = new URL(SDS_SERVER_URL).hostname
+    const fullHandle = `${newOrgName.trim()}.${sdsHostname}`
+
+    // Validate format first
+    try {
+      ensureValidHandle(fullHandle)
+    } catch {
+      // Invalid format - don't check availability
+      setDebouncedHandle(null)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedHandle(fullHandle)
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [newOrgName])
+
+  // Check handle availability (only when debounced handle is set and format is valid)
+  const handleAvailabilityQuery = useCheckHandleAvailabilityQuery(
+    debouncedHandle,
+    debouncedHandle !== null && handleValidationError === null,
+  )
+
+  // Validate handle in real-time
+  const handleOrgNameChange = (value: string) => {
+    setNewOrgName(value)
+
+    if (!value.trim()) {
+      setHandleValidationError(null)
+      return
+    }
+
+    // Construct the full repository handle with hostname suffix
+    // Use hostname (not host) to exclude port number, as handles cannot contain ports
+    const sdsHostname = new URL(SDS_SERVER_URL).hostname
+    const fullHandle = `${value.trim()}.${sdsHostname}`
+
+    // Validate the handle according to ATProto handle specification
+    try {
+      ensureValidHandle(fullHandle)
+      setHandleValidationError(null)
+    } catch (err) {
+      if (err instanceof InvalidHandleError) {
+        setHandleValidationError(err.message)
+      } else {
+        setHandleValidationError('Unknown validation error')
+      }
+    }
+  }
+
+  // Check if handle is valid (format valid AND available)
+  const isHandleFormatValid =
+    newOrgName.trim() !== '' && handleValidationError === null
+  const isHandleTaken =
+    debouncedHandle !== null &&
+    !handleAvailabilityQuery.isFetching &&
+    handleAvailabilityQuery.data === false
+  const isHandleAvailable =
+    debouncedHandle !== null && // Must have debounced (user stopped typing)
+    !handleAvailabilityQuery.isFetching && // Must have finished checking
+    handleAvailabilityQuery.data === true // Must be available
+  const isHandleValid =
+    isHandleFormatValid && isHandleAvailable && !isHandleTaken
 
   // Helper functions for collaboration modal
   const openCollaborationModal = (
@@ -130,8 +210,10 @@ export function RepositoryDashboard() {
       const response = await retryApiCall(async () => {
         console.log('[SDS Demo] Creating organization for user:', session.did)
 
+        // Send only the handle prefix - server will append hostname suffix
         const requestPayload = {
           name: newOrgName.trim(),
+          handlePrefix: newOrgName.trim(), // Prefix only - server appends hostname
           description: newOrgDescription.trim() || undefined,
           creatorDid: session.did,
         }
@@ -185,6 +267,7 @@ export function RepositoryDashboard() {
       setSelectedRepo(newOrg.did)
       setNewOrgName('')
       setNewOrgDescription('')
+      setHandleValidationError(null)
       setShowCreateOrg(false)
 
       alert(`Repository "${orgData.name}" created successfully!
@@ -259,7 +342,10 @@ You are the owner and can now invite collaborators to share this repository.`)
             {repositories.length} repositories
           </div>
           <Button
-            onClick={() => setShowCreateOrg(true)}
+            onClick={() => {
+              setShowCreateOrg(true)
+              setHandleValidationError(null)
+            }}
             size="small"
             disabled={loading}
           >
@@ -281,15 +367,57 @@ You are the owner and can now invite collaborators to share this repository.`)
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Repository Name *
+                Repository Handle *
               </label>
               <input
                 type="text"
                 value={newOrgName}
-                onChange={(e) => setNewOrgName(e.target.value)}
-                placeholder="Enter repository name"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-blue-500 focus:outline-none"
+                onChange={(e) => handleOrgNameChange(e.target.value)}
+                placeholder="Enter repository handle"
+                className={`mt-1 w-full rounded-lg border p-2 focus:outline-none ${
+                  handleValidationError || isHandleTaken
+                    ? 'border-red-500 focus:border-red-600'
+                    : isHandleFormatValid &&
+                        isHandleAvailable &&
+                        !handleAvailabilityQuery.isFetching
+                      ? 'border-green-500 focus:border-green-600'
+                      : 'border-gray-300 focus:border-blue-500'
+                }`}
               />
+              <div className="mt-1 text-sm text-gray-600">
+                Your repository handle will be:{' '}
+                <span className="font-medium text-gray-900">
+                  {newOrgName || '[handle]'}.{new URL(SDS_SERVER_URL).hostname}
+                </span>
+              </div>
+              {handleValidationError && (
+                <div className="mt-1 text-sm text-red-600">
+                  <span className="font-medium">Invalid handle:</span>{' '}
+                  {handleValidationError}
+                </div>
+              )}
+              {isHandleFormatValid && (
+                <>
+                  {handleAvailabilityQuery.isFetching && (
+                    <div className="mt-1 text-sm text-gray-500">
+                      Checking availability...
+                    </div>
+                  )}
+                  {isHandleTaken && (
+                    <div className="mt-1 text-sm text-red-600">
+                      <span className="font-medium">Handle already taken:</span>{' '}
+                      This handle is already in use. Please choose another.
+                    </div>
+                  )}
+                  {isHandleAvailable &&
+                    !handleAvailabilityQuery.isFetching &&
+                    debouncedHandle !== null && (
+                      <div className="mt-1 text-sm text-green-600">
+                        ✓ Valid handle and available
+                      </div>
+                    )}
+                </>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -306,7 +434,7 @@ You are the owner and can now invite collaborators to share this repository.`)
             <div className="flex space-x-2">
               <Button
                 onClick={createOrganization}
-                disabled={!newOrgName.trim() || loading}
+                disabled={!isHandleValid || loading}
                 size="small"
               >
                 {loading ? <Spinner /> : 'Create Repository'}
@@ -316,6 +444,7 @@ You are the owner and can now invite collaborators to share this repository.`)
                   setShowCreateOrg(false)
                   setNewOrgName('')
                   setNewOrgDescription('')
+                  setHandleValidationError(null)
                 }}
                 size="small"
                 disabled={loading}
@@ -347,7 +476,12 @@ You are the owner and can now invite collaborators to share this repository.`)
             Create your first shared repository to start collaborating with
             others.
           </p>
-          <Button onClick={() => setShowCreateOrg(true)}>
+          <Button
+            onClick={() => {
+              setShowCreateOrg(true)
+              setHandleValidationError(null)
+            }}
+          >
             Create Your First Repository
           </Button>
         </div>

@@ -22,8 +22,8 @@ export interface InputSchema {
   name: string
   /** Optional description of the organization. */
   description?: string
-  /** Optional custom handle for the organization. If not provided, will be auto-generated. */
-  handle?: string
+  /** The handle prefix (part before the first dot). The SDS hostname will be automatically appended as the suffix. */
+  handlePrefix: string
   /** DID of the user creating the organization. */
   creatorDid: string
 }

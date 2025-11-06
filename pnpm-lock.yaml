@@ -1931,6 +1931,9 @@ importers:
       '@atproto/sds':
         specifier: workspace:*
         version: link:../sds
+      '@atproto/syntax':
+        specifier: workspace:^
+        version: link:../syntax
       '@atproto/xrpc':
         specifier: workspace:*
         version: link:../xrpc

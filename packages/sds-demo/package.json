@@ -37,6 +37,7 @@
     "@atproto/oauth-client-browser": "workspace:*",
     "@atproto/oauth-types": "workspace:*",
     "@atproto/sds": "workspace:*",
+    "@atproto/syntax": "workspace:^",
     "@atproto/xrpc": "workspace:*",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-html": "^1.0.4",
