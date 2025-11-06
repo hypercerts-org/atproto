@@ -1964,6 +1964,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.17
         version: 10.4.19(postcss@8.5.3)
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
       postcss:
         specifier: ^8.4.33
         version: 8.5.3
@@ -6406,6 +6409,10 @@ packages:
 
   dotenv@16.0.3:
     resolution: {integrity: sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==}
+    engines: {node: '>=12'}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
 
   dotenv@8.6.0:
@@ -16347,6 +16354,8 @@ snapshots:
       domhandler: 4.3.1
 
   dotenv@16.0.3: {}
+
+  dotenv@16.6.1: {}
 
   dotenv@8.6.0: {}
 
