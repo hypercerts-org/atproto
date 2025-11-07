@@ -1,6 +1,6 @@
 import assert from 'node:assert'
 import { z } from 'zod'
-import { cborEncode, noUndefinedVals, schema } from '@atproto/common'
+import { cborEncode, noUndefinedVals } from '@atproto/common'
 import { BlockMap, blocksToCarFile } from '@atproto/repo'
 import { AccountStatus } from '../account-manager/account-manager'
 import { CommitDataWithOps, SyncEvtData } from '../repo'

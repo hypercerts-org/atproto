@@ -50,10 +50,7 @@ export class FederatedTokenValidator {
   /**
    * Validate an OAuth token from any PDS issuer
    */
-  async validateToken(
-    token: string,
-    tokenType: 'Bearer' | 'DPoP' = 'Bearer',
-  ): Promise<TokenValidationResult> {
+  async validateToken(token: string): Promise<TokenValidationResult> {
     // 1. Decode token to extract issuer (without verification)
     const payload = this.decodeTokenPayload(token)
 

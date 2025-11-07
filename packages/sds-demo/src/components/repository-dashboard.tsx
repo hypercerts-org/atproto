@@ -8,7 +8,6 @@ import {
 } from '../contexts/repository-context.tsx'
 import {
   useCheckHandleAvailabilityQuery,
-  useCreateRecordMutation,
   useListOrganizationsQuery,
 } from '../queries/use-sds-queries.ts'
 import { RepositoryPermissions } from '../services/collaboration-service.ts'
@@ -72,7 +71,6 @@ export function RepositoryDashboard() {
     repositoryHandle: '',
   })
 
-  const createRecordMutation = useCreateRecordMutation()
   const organizationsQuery = useListOrganizationsQuery()
 
   // Debounce handle input for availability checking (1 second delay)

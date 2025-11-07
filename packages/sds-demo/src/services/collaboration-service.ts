@@ -1,8 +1,6 @@
 // Repository Collaboration Service - Direct HTTP calls for collaboration
 // This service handles granting, revoking, and listing repository access permissions
 
-import { SDS_SERVER_URL } from '../constants.ts'
-
 export interface RepositoryPermissions {
   read: boolean
   create: boolean

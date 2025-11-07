@@ -1,4 +1,6 @@
 import { TestNetworkWithSds } from '@atproto/dev-env'
+import type { DatabaseSchema } from '../src/account-manager/db/schema'
+import type { Database } from '../src/db'
 import { SdsPermissionManager } from '../src/permission-manager'
 import { RepositoryPermissions } from '../src/types'
 
@@ -15,7 +17,7 @@ describe('SDS Endpoints Unit Tests', () => {
       dbPostgresSchema: 'sds_endpoints_unit_test',
     })
     permissionManager = new SdsPermissionManager(
-      network.sds.ctx.accountManager.db,
+      network.sds.ctx.accountManager.db as unknown as Database<DatabaseSchema>,
     )
   })
 
@@ -43,7 +45,12 @@ describe('SDS Endpoints Unit Tests', () => {
       expect(initialPermissions).toBeNull()
 
       // 2. Grant permissions
-      const permissions: RepositoryPermissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -72,13 +79,25 @@ describe('SDS Endpoints Unit Tests', () => {
         testUserDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(false)
+      expect(hasCreateAccess).toBe(false)
+      expect(hasUpdateAccess).toBe(false)
+      expect(hasDeleteAccess).toBe(false)
 
       // 6. Revoke access
       await permissionManager.revokeAccess(
@@ -116,14 +135,26 @@ describe('SDS Endpoints Unit Tests', () => {
         testOwnerDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testOwnerDid,
         testOwnerDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
     })
 
     test('should handle multiple collaborators', async () => {
@@ -135,19 +166,19 @@ describe('SDS Endpoints Unit Tests', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         user1,
-        { read: true, write: true },
+        { read: true, create: true, update: true, delete: true },
         testOwnerDid,
       )
       await permissionManager.grantAccess(
         testRepoDid,
         user2,
-        { read: true, write: false },
+        { read: true, create: false, update: false, delete: false },
         testOwnerDid,
       )
       await permissionManager.grantAccess(
         testRepoDid,
         user3,
-        { read: false, write: true },
+        { read: false, create: true, update: true, delete: true },
         testOwnerDid,
       )
 
@@ -160,21 +191,39 @@ describe('SDS Endpoints Unit Tests', () => {
         await permissionManager.checkAccess(testRepoDid, user1, 'read'),
       ).toBe(true)
       expect(
-        await permissionManager.checkAccess(testRepoDid, user1, 'write'),
+        await permissionManager.checkAccess(testRepoDid, user1, 'create'),
+      ).toBe(true)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user1, 'update'),
+      ).toBe(true)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user1, 'delete'),
       ).toBe(true)
 
       expect(
         await permissionManager.checkAccess(testRepoDid, user2, 'read'),
       ).toBe(true)
       expect(
-        await permissionManager.checkAccess(testRepoDid, user2, 'write'),
+        await permissionManager.checkAccess(testRepoDid, user2, 'create'),
+      ).toBe(false)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user2, 'update'),
+      ).toBe(false)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user2, 'delete'),
       ).toBe(false)
 
       expect(
         await permissionManager.checkAccess(testRepoDid, user3, 'read'),
       ).toBe(false)
       expect(
-        await permissionManager.checkAccess(testRepoDid, user3, 'write'),
+        await permissionManager.checkAccess(testRepoDid, user3, 'create'),
+      ).toBe(true)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user3, 'update'),
+      ).toBe(true)
+      expect(
+        await permissionManager.checkAccess(testRepoDid, user3, 'delete'),
       ).toBe(true)
     })
 
@@ -183,7 +232,7 @@ describe('SDS Endpoints Unit Tests', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
-        { read: true, write: false },
+        { read: true, create: false, update: false, delete: false },
         testOwnerDid,
       )
 
@@ -191,13 +240,18 @@ describe('SDS Endpoints Unit Tests', () => {
         testRepoDid,
         testUserDid,
       )
-      expect(permissions).toEqual({ read: true, write: false })
+      expect(permissions).toEqual({
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      })
 
       // Update permissions
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
-        { read: true, write: true },
+        { read: true, create: true, update: true, delete: true },
         testOwnerDid,
       )
 
@@ -205,7 +259,12 @@ describe('SDS Endpoints Unit Tests', () => {
         testRepoDid,
         testUserDid,
       )
-      expect(permissions).toEqual({ read: true, write: true })
+      expect(permissions).toEqual({
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      })
 
       // Check audit log shows both grant and modify
       const auditLog =
@@ -223,13 +282,13 @@ describe('SDS Endpoints Unit Tests', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         user1,
-        { read: true, write: false },
+        { read: true, create: false, update: false, delete: false },
         testOwnerDid,
       )
       await permissionManager.grantAccess(
         testRepoDid,
         user2,
-        { read: true, write: true },
+        { read: true, create: true, update: true, delete: true },
         testOwnerDid,
       )
 
@@ -279,10 +338,16 @@ describe('SDS Endpoints Unit Tests', () => {
     test('should handle large audit logs', async () => {
       // Create many permission changes
       for (let i = 0; i < 50; i++) {
+        const hasWrite = i % 2 === 0
         await permissionManager.grantAccess(
           testRepoDid,
           testUserDid,
-          { read: true, write: i % 2 === 0 },
+          {
+            read: true,
+            create: hasWrite,
+            update: hasWrite,
+            delete: hasWrite,
+          },
           testOwnerDid,
         )
       }
@@ -303,13 +368,13 @@ describe('SDS Endpoints Unit Tests', () => {
         permissionManager.grantAccess(
           testRepoDid,
           user1,
-          { read: true, write: true },
+          { read: true, create: true, update: true, delete: true },
           testOwnerDid,
         ),
         permissionManager.grantAccess(
           testRepoDid,
           user2,
-          { read: true, write: false },
+          { read: true, create: false, update: false, delete: false },
           testOwnerDid,
         ),
       ])
@@ -336,7 +401,7 @@ describe('SDS Endpoints Unit Tests', () => {
           await permissionManager.grantAccess(
             invalidDid,
             testUserDid,
-            { read: true, write: true },
+            { read: true, create: true, update: true, delete: true },
             testOwnerDid,
           )
 
@@ -360,7 +425,7 @@ describe('SDS Endpoints Unit Tests', () => {
           await permissionManager.grantAccess(
             maliciousDid,
             testUserDid,
-            { read: true, write: true },
+            { read: true, create: true, update: true, delete: true },
             testOwnerDid,
           )
 
@@ -374,11 +439,11 @@ describe('SDS Endpoints Unit Tests', () => {
     })
 
     test('should validate permission object structure', async () => {
-      const invalidPermissions = [
-        { read: 'true', write: 'false' }, // String instead of boolean
-        { read: 1, write: 0 }, // Number instead of boolean
-        { read: null, write: undefined }, // Null/undefined instead of boolean
-        { read: [], write: {} }, // Array/object instead of boolean
+      const invalidPermissions: unknown[] = [
+        { read: 'true', create: 'false' }, // String instead of boolean
+        { read: 1, create: 0 }, // Number instead of boolean
+        { read: null, create: undefined }, // Null/undefined instead of boolean
+        { read: [], create: {} }, // Array/object instead of boolean
       ]
 
       for (const _invalidPermissions of invalidPermissions) {
@@ -386,7 +451,7 @@ describe('SDS Endpoints Unit Tests', () => {
           await permissionManager.grantAccess(
             testRepoDid,
             testUserDid,
-            _invalidPermissions,
+            _invalidPermissions as RepositoryPermissions,
             testOwnerDid,
           )
 
@@ -400,10 +465,12 @@ describe('SDS Endpoints Unit Tests', () => {
     test('should prevent injection in permission data', async () => {
       const maliciousPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
         admin: true,
         malicious: '"; DROP TABLE shared_repository_permissions; --',
-      } as any
+      } as unknown as RepositoryPermissions
 
       try {
         await permissionManager.grantAccess(
@@ -429,7 +496,7 @@ describe('SDS Endpoints Unit Tests', () => {
         await permissionManager.grantAccess(
           longString, // Using long string as repo DID
           testUserDid,
-          { read: true, write: true },
+          { read: true, create: true, update: true, delete: true },
           testOwnerDid,
         )
 
@@ -455,7 +522,7 @@ describe('SDS Endpoints Unit Tests', () => {
           await permissionManager.grantAccess(
             unicodeString,
             testUserDid,
-            { read: true, write: true },
+            { read: true, create: true, update: true, delete: true },
             testOwnerDid,
           )
 
@@ -485,7 +552,7 @@ describe('SDS Endpoints Unit Tests', () => {
           await permissionManager.grantAccess(
             specialChar,
             testUserDid,
-            { read: true, write: true },
+            { read: true, create: true, update: true, delete: true },
             testOwnerDid,
           )
 

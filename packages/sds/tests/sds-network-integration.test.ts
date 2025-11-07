@@ -3,7 +3,6 @@ import { TestNetworkWithSds } from '@atproto/dev-env'
 
 describe('SDS Network Integration', () => {
   let network: TestNetworkWithSds
-  let agent: AtpAgent
   let repoOwner: { did: string; agent: AtpAgent }
   let collaborator: { did: string; agent: AtpAgent }
 
@@ -15,7 +14,6 @@ describe('SDS Network Integration', () => {
     // Create test users on PDS (account management is still handled by PDS)
     const adminHeaders = await network.adminHeaders()
     const pdsAgent = network.pds.getClient()
-    agent = network.sds.getClient()
 
     // Create repository owner
     const ownerAccount = await pdsAgent.com.atproto.server.createAccount(

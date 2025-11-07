@@ -91,7 +91,9 @@ describe('SDS API Endpoints', () => {
 
       expect(response.data.permissions).toEqual({
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
         admin: true,
       })
       expect(response.data.accessType).toBe('owner')
@@ -107,7 +109,9 @@ describe('SDS API Endpoints', () => {
 
       expect(response.data.permissions).toEqual({
         read: false,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
         admin: false,
       })
       expect(response.data.accessType).toBe('none')
@@ -118,7 +122,9 @@ describe('SDS API Endpoints', () => {
     test('should allow repository owner to grant access', async () => {
       const permissions: RepositoryPermissions = {
         read: true,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
       }
 
       const response = await repoOwner.agent.call('com.sds.repo.grantAccess', {
@@ -140,7 +146,9 @@ describe('SDS API Endpoints', () => {
     test('should not allow non-owner to grant access', async () => {
       const permissions: RepositoryPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
       }
 
       await expect(
@@ -155,7 +163,9 @@ describe('SDS API Endpoints', () => {
     test('should not allow granting access to repository owner', async () => {
       const permissions: RepositoryPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
       }
 
       await expect(
@@ -189,7 +199,9 @@ describe('SDS API Endpoints', () => {
 
       expect(response.data.permissions).toEqual({
         read: true,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
       })
       expect(response.data.accessType).toBe('shared')
       expect(response.data.grantedBy).toBe(repoOwner.did)
@@ -211,7 +223,9 @@ describe('SDS API Endpoints', () => {
         userDid: collaborator.did,
         permissions: {
           read: true,
-          write: false,
+          create: false,
+          update: false,
+          delete: false,
         },
         grantedBy: repoOwner.did,
         grantedAt: expect.any(String),
@@ -255,7 +269,12 @@ describe('SDS API Endpoints', () => {
       await repoOwner.agent.call('com.sds.repo.grantAccess', {
         repo: repoOwner.did,
         userDid: collaborator.did,
-        permissions: { read: true, write: false },
+        permissions: {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
       })
 
       await expect(
@@ -291,7 +310,12 @@ describe('SDS API Endpoints', () => {
       await repoOwner.agent.call('com.sds.repo.grantAccess', {
         repo: repoOwner.did,
         userDid: collaborator.did,
-        permissions: { read: true, write: true },
+        permissions: {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+        },
       })
 
       // Collaborator should be able to create records in the shared repository

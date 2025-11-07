@@ -84,7 +84,7 @@ describe('SDS Auth Integration', () => {
       const hasAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testOwnerDid,
         testOwnerDid,
-        'write',
+        'create',
       )
 
       expect(hasAccess).toBe(true)
@@ -102,7 +102,12 @@ describe('SDS Auth Integration', () => {
 
     test('should allow access to users with granted permissions', async () => {
       // Grant permissions first
-      const permissions: RepositoryPermissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -118,13 +123,13 @@ describe('SDS Auth Integration', () => {
       )
       expect(hasReadAccess).toBe(true)
 
-      // Test write access (should be denied)
-      const hasWriteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+      // Test create access (should be denied)
+      const hasCreateAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
       )
-      expect(hasWriteAccess).toBe(false)
+      expect(hasCreateAccess).toBe(false)
     })
 
     test('should handle errors gracefully', async () => {
@@ -142,21 +147,21 @@ describe('SDS Auth Integration', () => {
 
   describe('getRequiredAction', () => {
     test('should detect write operations correctly', async () => {
-      expect(sdsAuthVerifier.getRequiredAction('POST')).toBe('write')
-      expect(sdsAuthVerifier.getRequiredAction('PUT')).toBe('write')
-      expect(sdsAuthVerifier.getRequiredAction('DELETE')).toBe('write')
+      expect(sdsAuthVerifier.getRequiredAction('POST')).toBe('create')
+      expect(sdsAuthVerifier.getRequiredAction('PUT')).toBe('update')
+      expect(sdsAuthVerifier.getRequiredAction('DELETE')).toBe('delete')
 
       expect(sdsAuthVerifier.getRequiredAction('GET', '/createRecord')).toBe(
-        'write',
+        'create',
       )
       expect(sdsAuthVerifier.getRequiredAction('GET', '/putRecord')).toBe(
-        'write',
+        'update',
       )
       expect(sdsAuthVerifier.getRequiredAction('GET', '/deleteRecord')).toBe(
-        'write',
+        'delete',
       )
       expect(sdsAuthVerifier.getRequiredAction('GET', '/uploadBlob')).toBe(
-        'write',
+        'create',
       )
     })
 
@@ -181,7 +186,12 @@ describe('SDS Auth Integration', () => {
   describe('integration with permission manager', () => {
     test('should integrate properly with permission manager', async () => {
       // Grant permissions through permission manager
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -195,14 +205,26 @@ describe('SDS Auth Integration', () => {
         testUserDid,
         'read',
       )
-      const hasWriteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+      const hasCreateAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
 
       // Revoke permissions
       await permissionManager.revokeAccess(
@@ -222,7 +244,13 @@ describe('SDS Auth Integration', () => {
 
     test('should handle admin permission inheritance', async () => {
       // Grant admin permissions
-      const permissions: RepositoryPermissions = { admin: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+        admin: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -230,16 +258,26 @@ describe('SDS Auth Integration', () => {
         testOwnerDid,
       )
 
-      // Admin should have write and read access
+      // Admin should have create, update, delete and read access
       const hasAdminAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
         'admin',
       )
-      const hasWriteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+      const hasCreateAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
       const hasReadAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
@@ -248,13 +286,20 @@ describe('SDS Auth Integration', () => {
       )
 
       expect(hasAdminAccess).toBe(true)
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
       expect(hasReadAccess).toBe(true)
     })
 
     test('should handle write permission inheritance', async () => {
       // Grant write permissions
-      const permissions: RepositoryPermissions = { write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -262,11 +307,21 @@ describe('SDS Auth Integration', () => {
         testOwnerDid,
       )
 
-      // Write should include read access but not admin
-      const hasWriteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+      // Write permissions should include read access but not admin
+      const hasCreateAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await sdsAuthVerifier.checkRepositoryAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
       const hasReadAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
@@ -279,7 +334,9 @@ describe('SDS Auth Integration', () => {
         'admin',
       )
 
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
       expect(hasReadAccess).toBe(true)
       expect(hasAdminAccess).toBe(false)
     })
@@ -288,7 +345,12 @@ describe('SDS Auth Integration', () => {
   describe('permission-based authorization (no OAuth scopes)', () => {
     test('should allow access with SDS permissions only', async () => {
       // Grant permissions in DB
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -300,7 +362,7 @@ describe('SDS Auth Integration', () => {
       const hasAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
       )
       expect(hasAccess).toBe(true)
     })
@@ -311,7 +373,7 @@ describe('SDS Auth Integration', () => {
       const hasAccess = await sdsAuthVerifier.checkRepositoryAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
       )
       expect(hasAccess).toBe(false)
     })

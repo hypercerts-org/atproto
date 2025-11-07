@@ -9,7 +9,6 @@
  * - Supports both Bearer and DPoP tokens
  */
 
-import { JoseKey, Keyset } from '@atproto/oauth-provider'
 import { AuthRequiredError } from '@atproto/xrpc-server'
 import { FederatedTokenValidator } from '../src/oauth/federated-token-validator'
 
@@ -30,17 +29,17 @@ describe('FederatedTokenValidator', () => {
       // Create a token without an issuer claim
       const invalidToken = createMockJWT({ sub: 'did:plc:test' })
 
-      await expect(
-        validator.validateToken(invalidToken, 'Bearer'),
-      ).rejects.toThrow(AuthRequiredError)
+      await expect(validator.validateToken(invalidToken)).rejects.toThrow(
+        AuthRequiredError,
+      )
     })
 
     test('should reject malformed JWT', async () => {
       const malformedToken = 'not.a.valid.jwt'
 
-      await expect(
-        validator.validateToken(malformedToken, 'Bearer'),
-      ).rejects.toThrow(AuthRequiredError)
+      await expect(validator.validateToken(malformedToken)).rejects.toThrow(
+        AuthRequiredError,
+      )
     })
 
     test('should reject token with invalid DID', async () => {
@@ -65,7 +64,7 @@ describe('FederatedTokenValidator', () => {
         sub: 'invalid-did-format',
       })
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow(
+      await expect(validator.validateToken(token)).rejects.toThrow(
         AuthRequiredError,
       )
     })
@@ -83,7 +82,7 @@ describe('FederatedTokenValidator', () => {
         status: 404,
       } as Response)
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow(
+      await expect(validator.validateToken(token)).rejects.toThrow(
         AuthRequiredError,
       )
     })
@@ -107,7 +106,7 @@ describe('FederatedTokenValidator', () => {
         status: 500,
       } as Response)
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow(
+      await expect(validator.validateToken(token)).rejects.toThrow(
         AuthRequiredError,
       )
     })
@@ -131,7 +130,7 @@ describe('FederatedTokenValidator', () => {
         json: async () => ({ keys: 'not-an-array' }),
       } as Response)
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow(
+      await expect(validator.validateToken(token)).rejects.toThrow(
         AuthRequiredError,
       )
     })
@@ -158,7 +157,7 @@ describe('FederatedTokenValidator', () => {
 
       // This will fail signature verification (which is expected in unit tests),
       // but we're testing that DPoP token type is accepted
-      await expect(validator.validateToken(token, 'DPoP')).rejects.toThrow() // Will fail signature verification, but that's OK for this test
+      await expect(validator.validateToken(token)).rejects.toThrow() // Will fail signature verification, but that's OK for this test
     })
   })
 
@@ -186,7 +185,7 @@ describe('FederatedTokenValidator', () => {
       } as Response)
 
       // First validation (will fail signature verification but fetch JWKS)
-      await expect(validator.validateToken(token1, 'Bearer')).rejects.toThrow()
+      await expect(validator.validateToken(token1)).rejects.toThrow()
 
       expect(mockFetch).toHaveBeenCalledTimes(2) // Metadata + JWKS
 
@@ -197,7 +196,7 @@ describe('FederatedTokenValidator', () => {
       })
 
       // Should use cached JWKS, no new fetch calls
-      await expect(validator.validateToken(token2, 'Bearer')).rejects.toThrow()
+      await expect(validator.validateToken(token2)).rejects.toThrow()
 
       // Still only 2 calls (no additional JWKS fetch)
       expect(mockFetch).toHaveBeenCalledTimes(2)
@@ -224,7 +223,7 @@ describe('FederatedTokenValidator', () => {
         json: async () => ({ keys: [mockKey1] }),
       } as Response)
 
-      await expect(validator.validateToken(token1, 'Bearer')).rejects.toThrow()
+      await expect(validator.validateToken(token1)).rejects.toThrow()
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
 
@@ -245,7 +244,7 @@ describe('FederatedTokenValidator', () => {
         json: async () => ({ keys: [mockKey2] }),
       } as Response)
 
-      await expect(validator.validateToken(token2, 'Bearer')).rejects.toThrow()
+      await expect(validator.validateToken(token2)).rejects.toThrow()
 
       // Should have made 4 total calls (2 per issuer)
       expect(mockFetch).toHaveBeenCalledTimes(4)
@@ -271,7 +270,7 @@ describe('FederatedTokenValidator', () => {
         json: async () => ({ keys: [mockKey] }),
       } as Response)
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow()
+      await expect(validator.validateToken(token)).rejects.toThrow()
 
       // Verify the .well-known endpoint was called
       expect(mockFetch).toHaveBeenCalledWith(
@@ -292,7 +291,7 @@ describe('FederatedTokenValidator', () => {
         json: async () => ({ issuer: issuer }), // Missing jwks_uri
       } as Response)
 
-      await expect(validator.validateToken(token, 'Bearer')).rejects.toThrow(
+      await expect(validator.validateToken(token)).rejects.toThrow(
         AuthRequiredError,
       )
     })

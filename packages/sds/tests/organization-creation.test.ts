@@ -36,7 +36,7 @@ describe('organization creation', () => {
     const sdsAgent = new AtpAgent({ service: network.sds.url })
     // Copy session from PDS login to SDS agent
     if (user.agent.session) {
-      sdsAgent.session = user.agent.session
+      sdsAgent.sessionManager.session = user.agent.sessionManager.session
     }
     user.agent = sdsAgent
   })

@@ -1,5 +1,7 @@
 import { TestNetworkWithSds } from '@atproto/dev-env'
 import { InvalidRequestError } from '@atproto/xrpc-server'
+import type { DatabaseSchema } from '../src/account-manager/db/schema'
+import type { Database } from '../src/db'
 import { SdsPermissionManager } from '../src/permission-manager'
 import { RepositoryPermissions } from '../src/types'
 
@@ -17,7 +19,7 @@ describe('SDS Endpoint Logic', () => {
       dbPostgresSchema: 'sds_endpoint_logic_test',
     })
     permissionManager = new SdsPermissionManager(
-      network.sds.ctx.accountManager.db,
+      network.sds.ctx.accountManager.db as unknown as Database<DatabaseSchema>,
     )
   })
 
@@ -37,7 +39,12 @@ describe('SDS Endpoint Logic', () => {
 
   describe('grantAccess endpoint logic', () => {
     test('should grant access when called by repository owner', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
 
       // This simulates the grantAccess endpoint logic
       await permissionManager.grantAccess(
@@ -62,15 +69,22 @@ describe('SDS Endpoint Logic', () => {
 
     test('should validate permissions object', async () => {
       // Test the validation logic that would be in the endpoint
-      const invalidPermissions = { read: 'invalid', write: false } as any
+      const invalidPermissions = {
+        read: 'invalid',
+        create: false,
+        update: false,
+        delete: false,
+      } as any
 
       expect(() => {
         if (
           typeof invalidPermissions.read !== 'boolean' ||
-          typeof invalidPermissions.write !== 'boolean'
+          typeof invalidPermissions.create !== 'boolean' ||
+          typeof invalidPermissions.update !== 'boolean' ||
+          typeof invalidPermissions.delete !== 'boolean'
         ) {
           throw new InvalidRequestError(
-            'Permissions must specify boolean values for read and write',
+            'Permissions must specify boolean values for read, create, update, and delete',
           )
         }
       }).toThrow('Permissions must specify boolean values')
@@ -82,7 +96,12 @@ describe('SDS Endpoint Logic', () => {
         permissionManager.grantAccess(
           testOwnerDid,
           testOwnerDid,
-          { read: true, write: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+          },
           testOwnerDid,
         ),
       ).rejects.toThrow() // The permission manager should handle this case
@@ -95,7 +114,12 @@ describe('SDS Endpoint Logic', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
     })
@@ -131,13 +155,23 @@ describe('SDS Endpoint Logic', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
       await permissionManager.grantAccess(
         testRepoDid,
         'did:plc:another-user',
-        { read: true, write: true },
+        {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+        },
         testOwnerDid,
       )
     })
@@ -189,26 +223,53 @@ describe('SDS Endpoint Logic', () => {
         testOwnerDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testOwnerDid,
         testOwnerDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
 
       // The endpoint would return this format:
       const ownerResponse = {
-        permissions: { read: true, write: true },
+        permissions: {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+        },
         accessType: 'owner' as const,
       }
       expect(ownerResponse.accessType).toBe('owner')
-      expect(ownerResponse.permissions).toEqual({ read: true, write: true })
+      expect(ownerResponse.permissions).toEqual({
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      })
     })
 
     test('should return shared permissions for collaborator', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
@@ -242,13 +303,20 @@ describe('SDS Endpoint Logic', () => {
 
       // The endpoint would return this format:
       const unauthorizedResponse = {
-        permissions: { read: false, write: false },
+        permissions: {
+          read: false,
+          create: false,
+          update: false,
+          delete: false,
+        },
         accessType: 'none' as const,
       }
       expect(unauthorizedResponse.accessType).toBe('none')
       expect(unauthorizedResponse.permissions).toEqual({
         read: false,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
       })
     })
   })
@@ -259,7 +327,12 @@ describe('SDS Endpoint Logic', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
 
@@ -268,27 +341,46 @@ describe('SDS Endpoint Logic', () => {
         testCollaboratorDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testRepoDid,
         testCollaboratorDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testCollaboratorDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testCollaboratorDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(false)
+      expect(hasCreateAccess).toBe(false)
+      expect(hasUpdateAccess).toBe(false)
+      expect(hasDeleteAccess).toBe(false)
     })
 
     test('should support action-based permission checking', async () => {
       // This simulates how the auth verifier would check permissions for different operations
-      const permissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
 
       // Simulate endpoint permission checks
       const canRead = permissions.read // For operations like getRecord
-      const canWrite = permissions.write // For operations like createRecord
-      const canDelete = permissions.write // For operations like deleteRecord
+      const canCreate = permissions.create // For operations like createRecord
+      const canUpdate = permissions.update // For operations like updateRecord
+      const canDelete = permissions.delete // For operations like deleteRecord
 
       expect(canRead).toBe(true)
-      expect(canWrite).toBe(false)
+      expect(canCreate).toBe(false)
+      expect(canUpdate).toBe(false)
       expect(canDelete).toBe(false)
     })
   })
@@ -303,13 +395,23 @@ describe('SDS Endpoint Logic', () => {
         permissionManager.grantAccess(
           testRepoDid,
           user1,
-          { read: true, write: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+          },
           testOwnerDid,
         ),
         permissionManager.grantAccess(
           testRepoDid,
           user2,
-          { read: true, write: false },
+          {
+            read: true,
+            create: false,
+            update: false,
+            delete: false,
+          },
           testOwnerDid,
         ),
       ])
@@ -323,7 +425,12 @@ describe('SDS Endpoint Logic', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
 
@@ -344,13 +451,23 @@ describe('SDS Endpoint Logic', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testCollaboratorDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
       await permissionManager.grantAccess(
         testRepoDid,
         'did:plc:another-user',
-        { read: true, write: true },
+        {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+        },
         testOwnerDid,
       )
 
