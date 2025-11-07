@@ -41,12 +41,12 @@ The current security model relies on:
 
 ## Code Locations
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| SDS Auth Verifier | `src/sds-auth-verifier.ts` | Main auth logic, DPoP validation |
-| Simple Token Extractor | `src/oauth/simple-token-extractor.ts` | Extracts DID from JWT (no validation) |
+| Component                 | File                                     | Purpose                                                     |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| SDS Auth Verifier         | `src/sds-auth-verifier.ts`               | Main auth logic, DPoP validation                            |
+| Simple Token Extractor    | `src/oauth/simple-token-extractor.ts`    | Extracts DID from JWT (no validation)                       |
 | Federated Token Validator | `src/oauth/federated-token-validator.ts` | **EXISTS BUT NOT WIRED UP** - Would validate JWT signatures |
-| Base Auth Verifier | `src/auth-verifier.ts` | PDS-inherited auth (Bearer tokens, etc.) |
+| Base Auth Verifier        | `src/auth-verifier.ts`                   | PDS-inherited auth (Bearer tokens, etc.)                    |
 
 ## Endpoint Auth Methods
 
@@ -55,6 +55,7 @@ SDS endpoints use different auth methods:
 ### `authVerifier.oauth()` - Requires DPoP
 
 Used by SDS-specific endpoints:
+
 - `com.sds.organization.create`
 - `com.sds.organization.list`
 - `com.sds.repo.grantAccess`
@@ -66,6 +67,7 @@ Used by SDS-specific endpoints:
 ### `authVerifier.authorization()` - Accepts Bearer or DPoP
 
 Used by standard ATProto endpoints:
+
 - `com.atproto.repo.createRecord`
 - `com.atproto.repo.putRecord`
 - `com.atproto.repo.deleteRecord`
@@ -94,7 +96,7 @@ The test fails because:
    ```typescript
    if (tokenType !== 'DPoP') {
      throw new AuthRequiredError(
-       'DPoP tokens required. Bearer tokens are not accepted...'
+       'DPoP tokens required. Bearer tokens are not accepted...',
      )
    }
    ```
@@ -104,6 +106,7 @@ The test fails because:
 This test also uses `agent.login()`, but it calls endpoints like `com.sds.repo.getPermissions` which... wait, that also uses `oauth()`. Let me check if it's actually passing or also broken.
 
 **Update**: If `sds-network-integration.test.ts` is passing, it may be because:
+
 1. The tests are skipped
 2. The endpoints were changed to use `authorization()` instead of `oauth()`
 3. There's something else going on
@@ -158,6 +161,7 @@ const { did } = await this.federatedValidator.validateToken(token)
 ```
 
 This would:
+
 1. Decode token to get issuer (`iss` claim)
 2. Fetch OAuth metadata from `{issuer}/.well-known/oauth-authorization-server`
 3. Fetch JWKS from the `jwks_uri`

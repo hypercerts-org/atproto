@@ -38,7 +38,6 @@ function App() {
               <RepositoryDashboard />
             </div>
 
-
             {/* Technical Details (collapsible) */}
             <details className="rounded-lg bg-gray-50 p-6 shadow-md">
               <summary className="cursor-pointer text-lg font-medium text-gray-700">
