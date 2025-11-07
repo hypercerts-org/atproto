@@ -70,11 +70,11 @@ jobs:
         with:
           path: ~/.cache
           key: ${{ env.CURRENT_MONTH }}-${{ runner.os }}
-      - run: pnpm i --frozen-lockfile
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: packages
+      - run: pnpm i --frozen-lockfile
       - run: pnpm test:withFlags --maxWorkers=1 --shard=${{ matrix.shard }} --passWithNoTests
   verify:
     name: Verify
@@ -100,9 +100,9 @@ jobs:
         with:
           path: ~/.cache
           key: ${{ env.CURRENT_MONTH }}-${{ runner.os }}
-      - run: pnpm i --frozen-lockfile
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: packages
+      - run: pnpm i --frozen-lockfile
       - run: pnpm verify
