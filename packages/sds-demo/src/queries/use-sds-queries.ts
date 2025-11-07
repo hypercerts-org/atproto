@@ -1,21 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '../auth/auth-provider.tsx'
-
-export interface SdsPermissions {
-  read: boolean
-  write: boolean
-}
+import { RepositoryPermissions } from '../services/collaboration-service.ts'
 
 export interface SdsCollaborator {
   userDid: string
   handle?: string
-  permissions: SdsPermissions
+  permissions: RepositoryPermissions
   grantedBy: string
   grantedAt: string
 }
 
 export interface SdsPermissionInfo {
-  permissions: SdsPermissions
+  permissions: RepositoryPermissions
   accessType: 'owner' | 'shared' | 'none'
   grantedBy?: string
 }
@@ -30,15 +26,40 @@ export function useGetPermissionsQuery(repoDid: string) {
       if (!auth.signedIn || !auth.agent) throw new Error('No agent available')
 
       try {
+        if (!auth.session?.did) {
+          throw new Error('No authenticated DID available')
+        }
+
         const response = await auth.agent.call('com.sds.repo.getPermissions', {
           repo: repoDid,
+          userDid: auth.session.did,
         })
-        return response.data
+
+        const permissions = response.data.permissions || {}
+
+        return {
+          ...response.data,
+          permissions: {
+            read: permissions.read ?? false,
+            create: permissions.create ?? false,
+            update: permissions.update ?? false,
+            delete: permissions.delete ?? false,
+            admin: permissions.admin ?? false,
+            owner: permissions.owner ?? false,
+          },
+        }
       } catch (error) {
         console.error('Error fetching permissions:', error)
         // Return no permissions for greenfield demo
         return {
-          permissions: { read: false, write: false },
+          permissions: {
+            read: false,
+            create: false,
+            update: false,
+            delete: false,
+            admin: false,
+            owner: false,
+          },
           accessType: 'none',
         }
       }

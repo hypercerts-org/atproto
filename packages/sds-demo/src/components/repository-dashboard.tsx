@@ -1,25 +1,48 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { Agent } from '@atproto/api'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuthContext } from '../auth/auth-provider.tsx'
-import { SDS_SERVER_URL } from '../constants.ts'
 import {
   Repository,
   useRepositoryContext,
 } from '../contexts/repository-context.tsx'
-import { addSdsLexicons } from '../lib/sds-lexicons.ts'
-import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
 import {
   useCreateRecordMutation,
   useListOrganizationsQuery,
 } from '../queries/use-sds-queries.ts'
+import { RepositoryPermissions } from '../services/collaboration-service.ts'
 import { retryApiCall } from '../utils/api-retry.ts'
 import { Button } from './button.tsx'
 import { CollaborationDebug } from './collaboration-debug.tsx'
 import { CollaborationModal } from './collaboration-modal.tsx'
-import { PermissionBadge } from './permission-badge.tsx'
 import { RepositoryCard } from './repository-card.tsx'
 import { Spinner } from './spinner.tsx'
+
+const normalizePermissions = (
+  permissions?: Partial<RepositoryPermissions>,
+): RepositoryPermissions => ({
+  read: permissions?.read ?? false,
+  create: permissions?.create ?? false,
+  update: permissions?.update ?? false,
+  delete: permissions?.delete ?? false,
+  admin: permissions?.admin ?? false,
+  owner: permissions?.owner ?? false,
+})
+
+const deriveAccessType = (
+  rawAccessType: Repository['accessType'] | undefined,
+  permissions: RepositoryPermissions,
+): Repository['accessType'] => {
+  if (permissions.owner) return 'owner'
+  if (permissions.admin) return 'owner'
+  if (
+    permissions.read ||
+    permissions.create ||
+    permissions.update ||
+    permissions.delete
+  ) {
+    return 'shared'
+  }
+  return rawAccessType ?? 'none'
+}
 
 export function RepositoryDashboard() {
   const auth = useAuthContext()
@@ -65,33 +88,36 @@ export function RepositoryDashboard() {
     })
   }
 
-  // Load existing organizations on component mount
+  // Normalize organizations returned from API for repository context
   useEffect(() => {
-    if (organizationsQuery.data && organizationsQuery.data.length > 0) {
-      const existingOrgs: Repository[] = organizationsQuery.data.map(
-        (org: any) => ({
+    if (!organizationsQuery.data || organizationsQuery.data.length === 0) {
+      return
+    }
+
+    const existingOrgs: Repository[] = organizationsQuery.data.map(
+      (org: any) => {
+        const permissions = normalizePermissions(org.permissions)
+
+        return {
           did: org.did,
           handle: org.handle,
-          accessType: org.accessType,
-          permissions: {
-            read: org.permissions.read,
-            write: org.permissions.write,
-          },
-          collaboratorCount: 1,
-        }),
-      )
-
-      // Add organizations that aren't already in the repository list
-      existingOrgs.forEach((org) => {
-        const exists = repositories.some(
-          (repo) => repo.did === org.did && repo.handle === org.handle,
-        )
-        if (!exists) {
-          addRepository(org)
+          accessType: deriveAccessType(org.accessType, permissions),
+          permissions,
+          collaboratorCount: org.collaboratorCount ?? 1,
+          isOwner: permissions.owner ?? false,
         }
-      })
-    }
-  }, [organizationsQuery.data, session?.did, repositories, addRepository])
+      },
+    )
+
+    existingOrgs.forEach((org) => {
+      const exists = repositories.some(
+        (repo) => repo.did === org.did && repo.handle === org.handle,
+      )
+      if (!exists) {
+        addRepository(org)
+      }
+    })
+  }, [organizationsQuery.data, repositories, addRepository])
 
   // Start with empty state - users will create their own organizations
 
@@ -134,14 +160,25 @@ export function RepositoryDashboard() {
       }
 
       const orgData = response.data
+      const permissions = normalizePermissions(
+        orgData.permissions ?? {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+          admin: true,
+          owner: true,
+        },
+      )
 
       // Add the new organization to the local state
       const newOrg: Repository = {
         did: orgData.did,
         handle: orgData.handle,
-        accessType: orgData.accessType || 'owner',
-        permissions: orgData.permissions || { read: true, write: true },
+        accessType: deriveAccessType(orgData.accessType, permissions),
+        permissions,
         collaboratorCount: 1,
+        isOwner: permissions.owner ?? false,
       }
 
       addRepository(newOrg)
@@ -201,6 +238,11 @@ You are the owner and can now invite collaborators to share this repository.`)
       setLoading(false)
     }
   }
+
+  const selectedRepository = useMemo(
+    () => repositories.find((r) => r.did === selectedRepo),
+    [repositories, selectedRepo],
+  )
 
   return (
     <div className="space-y-6">
@@ -327,15 +369,16 @@ You are the owner and can now invite collaborators to share this repository.`)
       </div>
 
       {/* Content Creation Panel */}
-      {selectedRepo && (
+      {selectedRepo && selectedRepository && (
         <div className="rounded-lg bg-gray-50 p-4">
           <h4 className="mb-3 font-medium text-gray-900">
-            Create Content in{' '}
-            {repositories.find((r) => r.did === selectedRepo)?.handle}
+            Create Content in {selectedRepository.handle}
           </h4>
 
-          {repositories.find((r) => r.did === selectedRepo)?.permissions
-            .write ? (
+          {selectedRepository.permissions &&
+          (selectedRepository.permissions.create ||
+            selectedRepository.permissions.update ||
+            selectedRepository.permissions.delete) ? (
             <div className="space-y-3">
               <textarea
                 value={newPostText}

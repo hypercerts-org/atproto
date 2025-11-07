@@ -29,6 +29,7 @@ export function PermissionBadge({
       Owner: 'bg-red-100 text-red-800',
       Admin: 'bg-purple-100 text-purple-800',
       'Read & Write': 'bg-green-100 text-green-800',
+      'Write Only': 'bg-amber-100 text-amber-800',
       'Read Only': 'bg-blue-100 text-blue-800',
       'No Access': 'bg-gray-100 text-gray-800',
     }
@@ -48,48 +49,59 @@ export function DetailedPermissionBadges({
   permissions,
   className = '',
 }: DetailedPermissionBadgesProps) {
+  const permissionEntries: Array<
+    { label: string; value: boolean } & {
+      highlight?: 'primary' | 'warning'
+    }
+  > = [
+    { label: 'Read', value: permissions.read, highlight: 'primary' },
+    { label: 'Create', value: permissions.create, highlight: 'primary' },
+    { label: 'Update', value: permissions.update, highlight: 'primary' },
+    { label: 'Delete', value: permissions.delete, highlight: 'primary' },
+  ]
+
+  if (permissions.admin !== undefined) {
+    permissionEntries.push({
+      label: 'Admin',
+      value: permissions.admin,
+      highlight: 'warning',
+    })
+  }
+
+  if (permissions.owner !== undefined) {
+    permissionEntries.push({
+      label: 'Owner',
+      value: permissions.owner,
+      highlight: 'warning',
+    })
+  }
+
+  const getBadgeClasses = (
+    value: boolean,
+    highlight: 'primary' | 'warning' = 'primary',
+  ) => {
+    if (value) {
+      return highlight === 'primary'
+        ? 'bg-green-100 text-green-700'
+        : 'bg-purple-100 text-purple-700'
+    }
+
+    return 'bg-red-100 text-red-700'
+  }
+
   return (
-    <div className={`flex space-x-2 ${className}`}>
-      <span
-        className={`rounded px-2 py-1 text-sm ${
-          permissions.read
-            ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700'
-        }`}
-      >
-        Read: {permissions.read ? '✓' : '✗'}
-      </span>
-      <span
-        className={`rounded px-2 py-1 text-sm ${
-          permissions.write
-            ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700'
-        }`}
-      >
-        Write: {permissions.write ? '✓' : '✗'}
-      </span>
-      {permissions.admin !== undefined && (
+    <div className={`flex flex-wrap gap-2 ${className}`}>
+      {permissionEntries.map(({ label, value, highlight }) => (
         <span
-          className={`rounded px-2 py-1 text-sm ${
-            permissions.admin
-              ? 'bg-purple-100 text-purple-700'
-              : 'bg-red-100 text-red-700'
-          }`}
+          key={label}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${getBadgeClasses(
+            value,
+            highlight,
+          )}`}
         >
-          Admin: {permissions.admin ? '✓' : '✗'}
+          {label}: {value ? '✓' : '✗'}
         </span>
-      )}
-      {permissions.owner !== undefined && (
-        <span
-          className={`rounded px-2 py-1 text-sm ${
-            permissions.owner
-              ? 'bg-red-100 text-red-700'
-              : 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          Owner: {permissions.owner ? '✓' : '✗'}
-        </span>
-      )}
+      ))}
     </div>
   )
 }
