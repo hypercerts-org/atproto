@@ -14112,16 +14112,26 @@ export const schemaDict = {
       },
       permissions: {
         type: 'object',
-        description: 'Repository access permissions',
-        required: ['read', 'write'],
+        description:
+          "Repository access permissions aligned with OAuth's granular action model",
+        required: ['read', 'create', 'update', 'delete'],
         properties: {
           read: {
             type: 'boolean',
             description: 'Permission to read repository content.',
           },
-          write: {
+          create: {
             type: 'boolean',
-            description: 'Permission to write/modify repository content.',
+            description: 'Permission to create new records in the repository.',
+          },
+          update: {
+            type: 'boolean',
+            description:
+              'Permission to update existing records in the repository.',
+          },
+          delete: {
+            type: 'boolean',
+            description: 'Permission to delete records from the repository.',
           },
           admin: {
             type: 'boolean',

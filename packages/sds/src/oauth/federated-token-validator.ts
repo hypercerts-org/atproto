@@ -1,6 +1,5 @@
+import { JoseKey, Keyset } from '@atproto/oauth-provider'
 import { AuthRequiredError } from '@atproto/xrpc-server'
-import { Keyset } from '@atproto/oauth-provider'
-import { JoseKey } from '@atproto/oauth-provider'
 
 /**
  * Result of token validation

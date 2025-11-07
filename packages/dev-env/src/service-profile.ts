@@ -24,7 +24,10 @@ export class ServiceProfile {
     return this.client.assertDid
   }
 
-  async migrateTo(newPds: TestPds | any, options: ServiceMigrationOptions = {}) {
+  async migrateTo(
+    newPds: TestPds | any,
+    options: ServiceMigrationOptions = {},
+  ) {
     const newClient = newPds.getClient()
 
     const newPdsDesc = await newClient.com.atproto.server.describeServer()

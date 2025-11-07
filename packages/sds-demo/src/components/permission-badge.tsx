@@ -1,5 +1,8 @@
 // Permission Badge Component - Visual indicator for permission levels
-import { type RepositoryPermissions, getPermissionLevel } from '../services/collaboration-service.ts'
+import {
+  type RepositoryPermissions,
+  getPermissionLevel,
+} from '../services/collaboration-service.ts'
 
 interface PermissionBadgeProps {
   permissions: RepositoryPermissions
@@ -7,7 +10,11 @@ interface PermissionBadgeProps {
   className?: string
 }
 
-export function PermissionBadge({ permissions, size = 'medium', className = '' }: PermissionBadgeProps) {
+export function PermissionBadge({
+  permissions,
+  size = 'medium',
+  className = '',
+}: PermissionBadgeProps) {
   const level = getPermissionLevel(permissions)
 
   // Determine styling based on permission level
@@ -19,8 +26,8 @@ export function PermissionBadge({ permissions, size = 'medium', className = '' }
     }
 
     const colorStyles = {
-      'Owner': 'bg-red-100 text-red-800',
-      'Admin': 'bg-purple-100 text-purple-800',
+      Owner: 'bg-red-100 text-red-800',
+      Admin: 'bg-purple-100 text-purple-800',
       'Read & Write': 'bg-green-100 text-green-800',
       'Read Only': 'bg-blue-100 text-blue-800',
       'No Access': 'bg-gray-100 text-gray-800',
@@ -29,11 +36,7 @@ export function PermissionBadge({ permissions, size = 'medium', className = '' }
     return `${baseStyles[size]} ${colorStyles[level as keyof typeof colorStyles]} font-medium rounded-full`
   }
 
-  return (
-    <span className={`${getStyles()} ${className}`}>
-      {level}
-    </span>
-  )
+  return <span className={`${getStyles()} ${className}`}>{level}</span>
 }
 
 interface DetailedPermissionBadgesProps {
@@ -41,7 +44,10 @@ interface DetailedPermissionBadgesProps {
   className?: string
 }
 
-export function DetailedPermissionBadges({ permissions, className = '' }: DetailedPermissionBadgesProps) {
+export function DetailedPermissionBadges({
+  permissions,
+  className = '',
+}: DetailedPermissionBadgesProps) {
   return (
     <div className={`flex space-x-2 ${className}`}>
       <span

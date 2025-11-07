@@ -3,23 +3,23 @@ import { useEffect, useState } from 'react'
 import { Agent } from '@atproto/api'
 import { useAuthContext } from '../auth/auth-provider.tsx'
 import { SDS_SERVER_URL } from '../constants.ts'
-import { addSdsLexicons } from '../lib/sds-lexicons.ts'
 import {
   Repository,
   useRepositoryContext,
 } from '../contexts/repository-context.tsx'
+import { addSdsLexicons } from '../lib/sds-lexicons.ts'
+import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
 import {
   useCreateRecordMutation,
   useListOrganizationsQuery,
 } from '../queries/use-sds-queries.ts'
-import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
 import { retryApiCall } from '../utils/api-retry.ts'
 import { Button } from './button.tsx'
-import { Spinner } from './spinner.tsx'
+import { CollaborationDebug } from './collaboration-debug.tsx'
 import { CollaborationModal } from './collaboration-modal.tsx'
 import { PermissionBadge } from './permission-badge.tsx'
 import { RepositoryCard } from './repository-card.tsx'
-import { CollaborationDebug } from './collaboration-debug.tsx'
+import { Spinner } from './spinner.tsx'
 
 export function RepositoryDashboard() {
   const auth = useAuthContext()
@@ -46,7 +46,10 @@ export function RepositoryDashboard() {
   const organizationsQuery = useListOrganizationsQuery()
 
   // Helper functions for collaboration modal
-  const openCollaborationModal = (repositoryDid: string, repositoryHandle: string) => {
+  const openCollaborationModal = (
+    repositoryDid: string,
+    repositoryHandle: string,
+  ) => {
     setCollaborationModal({
       isOpen: true,
       repositoryDid,
@@ -72,7 +75,7 @@ export function RepositoryDashboard() {
           accessType: org.accessType,
           permissions: {
             read: org.permissions.read,
-            write: org.permissions.write
+            write: org.permissions.write,
           },
           collaboratorCount: 1,
         }),
@@ -107,17 +110,22 @@ export function RepositoryDashboard() {
           creatorDid: session.did,
         }
 
-        console.log('[SDS Demo] Making organization creation request via agent...')
+        console.log(
+          '[SDS Demo] Making organization creation request via agent...',
+        )
         console.log('[SDS Demo] Request payload:', requestPayload)
 
         // Use the SDS agent to make the call with proper lexicon routing
         const agentResponse = await auth.agent.call(
           'com.sds.organization.create',
           undefined,
-          requestPayload
+          requestPayload,
         )
 
-        console.log('[SDS Demo] Organization created successfully:', agentResponse.data)
+        console.log(
+          '[SDS Demo] Organization created successfully:',
+          agentResponse.data,
+        )
         return agentResponse
       })
 
@@ -201,7 +209,9 @@ You are the owner and can now invite collaborators to share this repository.`)
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Your Shared Repositories</h2>
+        <h2 className="text-2xl font-bold text-gray-900">
+          Your Shared Repositories
+        </h2>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-500">
             {repositories.length} repositories
@@ -223,7 +233,8 @@ You are the owner and can now invite collaborators to share this repository.`)
             Create Shared Repository
           </h3>
           <p className="mb-4 text-sm text-gray-600">
-            Create a new repository on the SDS that you own and can share with collaborators.
+            Create a new repository on the SDS that you own and can share with
+            collaborators.
           </p>
           <div className="space-y-4">
             <div>
@@ -291,7 +302,8 @@ You are the owner and can now invite collaborators to share this repository.`)
             No shared repositories yet
           </h3>
           <p className="mb-4 text-gray-500">
-            Create your first shared repository to start collaborating with others.
+            Create your first shared repository to start collaborating with
+            others.
           </p>
           <Button onClick={() => setShowCreateOrg(true)}>
             Create Your First Repository
@@ -307,7 +319,9 @@ You are the owner and can now invite collaborators to share this repository.`)
             repository={repo}
             isSelected={selectedRepo === repo.did}
             onSelect={() => setSelectedRepo(repo.did)}
-            onManageCollaborators={() => openCollaborationModal(repo.did, repo.handle)}
+            onManageCollaborators={() =>
+              openCollaborationModal(repo.did, repo.handle)
+            }
           />
         ))}
       </div>

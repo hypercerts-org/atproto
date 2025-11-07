@@ -72,19 +72,63 @@ export default function (server: Server, ctx: SdsAppContext) {
 
       const userDid = auth.credentials.did
 
-      // SDS Enhancement: Use enhanced account finder that supports shared access
-      const { account, accessType } =
-        await ctx.authVerifier.findAccountWithSharedAccess(
-          repo,
-          userDid,
-          'write',
-          {
-            checkDeactivated: true,
-            checkTakedown: true,
-          },
-        )
+      // SDS Enhancement: Determine required permissions based on write operations
+      const hasCreates = writes.some(isCreate)
+      const hasUpdates = writes.some(isUpdate)
+      const hasDeletes = writes.some(isDelete)
 
+      // Get account and check initial access
+      const account = await ctx.authVerifier.findAccount(repo, {
+        checkDeactivated: true,
+        checkTakedown: true,
+      })
       const repoDid = account.did
+
+      // If not the owner, verify user has all necessary granular permissions
+      let accessType: 'owner' | 'shared' = 'owner'
+      if (repoDid !== userDid) {
+        accessType = 'shared'
+
+        // Check each required permission type
+        if (hasCreates) {
+          const hasCreateAccess = await ctx.authVerifier.checkRepositoryAccess(
+            repoDid,
+            userDid,
+            'create',
+          )
+          if (!hasCreateAccess) {
+            throw new InvalidRequestError(
+              `Access denied: User ${userDid} does not have 'create' permission for repository ${repoDid}`,
+            )
+          }
+        }
+
+        if (hasUpdates) {
+          const hasUpdateAccess = await ctx.authVerifier.checkRepositoryAccess(
+            repoDid,
+            userDid,
+            'update',
+          )
+          if (!hasUpdateAccess) {
+            throw new InvalidRequestError(
+              `Access denied: User ${userDid} does not have 'update' permission for repository ${repoDid}`,
+            )
+          }
+        }
+
+        if (hasDeletes) {
+          const hasDeleteAccess = await ctx.authVerifier.checkRepositoryAccess(
+            repoDid,
+            userDid,
+            'delete',
+          )
+          if (!hasDeleteAccess) {
+            throw new InvalidRequestError(
+              `Access denied: User ${userDid} does not have 'delete' permission for repository ${repoDid}`,
+            )
+          }
+        }
+      }
 
       if (writes.length > 200) {
         throw new InvalidRequestError('Too many writes. Max: 200')

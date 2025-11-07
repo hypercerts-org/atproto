@@ -45,11 +45,12 @@ export default function (server: Server, ctx: SdsAppContext) {
       const userDid = auth.credentials.did
 
       // SDS Enhancement: Use enhanced account finder that supports shared access
+      // Check for 'create' permission (aligned with OAuth scope model)
       const { account, accessType } =
         await ctx.authVerifier.findAccountWithSharedAccess(
           repo,
           userDid,
-          'write',
+          'create',
           {
             checkDeactivated: true,
             checkTakedown: true,

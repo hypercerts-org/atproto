@@ -7,7 +7,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('repoDid', 'varchar', (col) => col.notNull())
     .addColumn('userDid', 'varchar', (col) => col.notNull())
     .addColumn('permissions', 'varchar', (col) =>
-      col.notNull().defaultTo('{"read":true,"write":true}'),
+      col
+        .notNull()
+        .defaultTo('{"read":true,"create":true,"update":true,"delete":true}'),
     )
     .addColumn('grantedBy', 'varchar', (col) => col.notNull())
     .addColumn('grantedAt', 'varchar', (col) =>

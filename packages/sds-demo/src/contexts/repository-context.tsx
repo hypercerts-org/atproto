@@ -65,10 +65,8 @@ export function RepositoryProvider({ children }: RepositoryProviderProps) {
   const updateCollaborators = (did: string, collaboratorCount: number) => {
     setRepositories((prev) =>
       prev.map((repo) =>
-        repo.did === did
-          ? { ...repo, collaboratorCount }
-          : repo
-      )
+        repo.did === did ? { ...repo, collaboratorCount } : repo,
+      ),
     )
   }
 

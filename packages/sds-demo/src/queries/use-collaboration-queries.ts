@@ -4,15 +4,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthContext } from '../auth/auth-provider.tsx'
 import {
-  grantRepositoryAccess,
-  revokeRepositoryAccess,
-  listRepositoryCollaborators,
-  getRepositoryPermissions,
+  type Collaborator,
+  type GetPermissionsResponse,
   type GrantAccessRequest,
   type GrantAccessResponse,
-  type Collaborator,
   type ListCollaboratorsResponse,
-  type GetPermissionsResponse,
+  getRepositoryPermissions,
+  grantRepositoryAccess,
+  listRepositoryCollaborators,
+  revokeRepositoryAccess,
 } from '../services/collaboration-service.ts'
 
 // Query key factory for collaboration-related queries

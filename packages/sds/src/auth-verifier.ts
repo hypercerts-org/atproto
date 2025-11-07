@@ -250,7 +250,10 @@ export class AuthVerifier {
       const type = extractAuthType(ctx.req)
       console.log('[Auth] Request URL:', ctx.req.url)
       console.log('[Auth] Detected auth type:', type)
-      console.log('[Auth] Authorization header present:', !!ctx.req.headers.authorization)
+      console.log(
+        '[Auth] Authorization header present:',
+        !!ctx.req.headers.authorization,
+      )
 
       if (type === AuthType.BEARER) {
         console.log('[Auth] Routing to access method (Bearer)')
@@ -614,7 +617,10 @@ const parseAuthorizationHeader = (
   req: IncomingMessage,
 ): [type: null] | [type: AuthType, token: string] => {
   const authorization = req.headers['authorization']
-  console.log('[Auth] Parsing authorization header:', authorization?.slice(0, 30) + '...')
+  console.log(
+    '[Auth] Parsing authorization header:',
+    authorization?.slice(0, 30) + '...',
+  )
 
   if (!authorization) {
     console.log('[Auth] No authorization header found')
@@ -623,7 +629,10 @@ const parseAuthorizationHeader = (
 
   const result = authorization.split(' ')
   if (result.length !== 2) {
-    console.log('[Auth] Malformed authorization header - wrong number of parts:', result.length)
+    console.log(
+      '[Auth] Malformed authorization header - wrong number of parts:',
+      result.length,
+    )
     throw new InvalidRequestError(
       'Malformed authorization header',
       'InvalidToken',

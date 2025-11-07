@@ -1,7 +1,7 @@
 // Repository Card Component - Display repository info with collaboration features
 import { Repository } from '../contexts/repository-context.tsx'
-import { Button } from './button.tsx'
 import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
+import { Button } from './button.tsx'
 
 interface RepositoryCardProps {
   repository: Repository
