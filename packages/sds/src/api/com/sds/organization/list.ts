@@ -40,7 +40,9 @@ export default function (server: Server, ctx: SdsAppContext) {
                 createdAt: account.createdAt || new Date().toISOString(),
                 permissions: {
                   read: permissions.read,
-                  write: permissions.write,
+                  create: permissions.create,
+                  update: permissions.update,
+                  delete: permissions.delete,
                   admin: permissions.admin || false,
                 },
                 accessType: permissions.admin ? 'owner' : 'collaborator',

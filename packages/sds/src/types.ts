@@ -13,6 +13,9 @@ export interface RepositoryPermissions {
   owner?: boolean
 }
 
+// Role hierarchy for permission checks
+export type RepositoryRole = 'owner' | 'admin' | 'collaborator' | 'none'
+
 export interface SharingConfig {
   maxCollaborators: number
   enableAuditLog: boolean

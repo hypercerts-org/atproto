@@ -38,7 +38,9 @@ export default function (server: Server, ctx: SdsAppContext) {
             body: {
               permissions: {
                 read: true,
-                write: true,
+                create: true,
+                update: true,
+                delete: true,
                 admin: true,
               },
               accessType: 'owner',
@@ -75,7 +77,9 @@ export default function (server: Server, ctx: SdsAppContext) {
           body: {
             permissions: {
               read: false,
-              write: false,
+              create: false,
+              update: false,
+              delete: false,
               admin: false,
             },
             accessType: 'none',

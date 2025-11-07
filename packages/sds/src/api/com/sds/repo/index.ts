@@ -8,6 +8,7 @@ import grantAccess from './grantAccess'
 import listCollaborators from './listCollaborators'
 import putRecord from './putRecord'
 import revokeAccess from './revokeAccess'
+import transferOwnership from './transferOwnership'
 
 export default function (server: Server, ctx: SdsAppContext) {
   // SDS-specific overrides (support shared access)
@@ -18,6 +19,7 @@ export default function (server: Server, ctx: SdsAppContext) {
 
   grantAccess(server, ctx)
   revokeAccess(server, ctx)
+  transferOwnership(server, ctx)
   listCollaborators(server, ctx)
   getPermissions(server, ctx)
 }

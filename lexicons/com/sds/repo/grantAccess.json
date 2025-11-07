@@ -95,6 +95,10 @@
         "admin": {
           "type": "boolean",
           "description": "Administrative permissions (manage collaborators, etc.)."
+        },
+        "owner": {
+          "type": "boolean",
+          "description": "Owner permissions (full control including ownership transfer)."
         }
       }
     },

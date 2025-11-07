@@ -325,6 +325,9 @@ export class SdsAuthVerifier extends AuthVerifier {
   /**
    * Utility method to determine required action based on request context
    * This helps endpoints determine what permission to check based on the operation
+   *
+   * Note: This is a legacy method. Endpoints should explicitly check for the
+   * specific granular permissions (create, update, delete) they require.
    */
   getRequiredAction(
     method: string,
@@ -340,20 +343,35 @@ export class SdsAuthVerifier extends AuthVerifier {
       return 'admin'
     }
 
-    // Write operations
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-      return 'write'
+    // Granular write operations based on specific endpoints
+    if (path?.includes('createRecord')) {
+      return 'create'
     }
 
-    // Specific endpoint patterns for write operations
-    if (
-      path?.includes('createRecord') ||
-      path?.includes('putRecord') ||
-      path?.includes('deleteRecord') ||
-      path?.includes('uploadBlob') ||
-      path?.includes('applyWrites')
-    ) {
-      return 'write'
+    if (path?.includes('putRecord')) {
+      return 'update'
+    }
+
+    if (path?.includes('deleteRecord')) {
+      return 'delete'
+    }
+
+    // applyWrites needs to check per-write-type, default to create
+    if (path?.includes('applyWrites') || path?.includes('uploadBlob')) {
+      return 'create'
+    }
+
+    // Method-based inference (less precise)
+    if (method === 'POST') {
+      return 'create'
+    }
+
+    if (method === 'PUT') {
+      return 'update'
+    }
+
+    if (method === 'DELETE') {
+      return 'delete'
     }
 
     // Default to read for GET operations and other cases

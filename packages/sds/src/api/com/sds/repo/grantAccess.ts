@@ -1,7 +1,6 @@
 // SDS Grant Access Endpoint - Allows repository owners to grant access to collaborators
 import { AuthRequiredError, InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from '../../../../lexicon'
-import { ids } from '../../../../lexicon/lexicons'
 import { SdsAppContext } from '../../../../sds-context'
 import { RepositoryPermissions, SdsPermissionError } from '../../../../types'
 
@@ -32,16 +31,19 @@ export default function (server: Server, ctx: SdsAppContext) {
           throw new InvalidRequestError('Invalid permissions object')
         }
 
+        // Validate granular permissions (aligned with unified model)
         if (
           typeof permissions.read !== 'boolean' ||
-          typeof permissions.write !== 'boolean'
+          typeof permissions.create !== 'boolean' ||
+          typeof permissions.update !== 'boolean' ||
+          typeof permissions.delete !== 'boolean'
         ) {
           throw new InvalidRequestError(
-            'Permissions must specify boolean values for read and write',
+            'Permissions must specify boolean values for read, create, update, and delete',
           )
         }
 
-        // Validate admin permission if provided
+        // Validate optional role permissions
         if (
           permissions.admin !== undefined &&
           typeof permissions.admin !== 'boolean'
@@ -51,37 +53,40 @@ export default function (server: Server, ctx: SdsAppContext) {
           )
         }
 
-        // Check if the authenticated user has permission to grant access
-        // Repository owners and users with admin permissions can grant access
-        const isOwner = await ctx.permissionManager.isOwner(
-          repoDid,
-          grantedByDid,
-        )
-        const hasAdminAccess = await ctx.permissionManager.checkAccess(
-          repoDid,
-          grantedByDid,
-          'admin',
-        )
-
-        console.log(
-          `[SDS] Grant access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${grantedByDid}, Repo: ${repoDid}`,
-        )
-
-        if (!isOwner && !hasAdminAccess) {
-          throw new AuthRequiredError(
-            'Only repository owners and admin users can grant access to collaborators',
+        if (
+          permissions.owner !== undefined &&
+          typeof permissions.owner !== 'boolean'
+        ) {
+          throw new InvalidRequestError(
+            'Owner permission must be a boolean value',
           )
         }
 
-        // Prevent users from granting access to themselves
+        // Prevent granting to repository itself (although this shouldn't happen in RBAC model)
         if (userDid === repoDid) {
-          throw new InvalidRequestError(
-            'Cannot grant access to repository owner (access is implicit)',
+          throw new InvalidRequestError('Invalid target user DID')
+        }
+
+        // Prevent granting to yourself
+        if (userDid === grantedByDid) {
+          throw new InvalidRequestError('Cannot grant access to yourself')
+        }
+
+        // Check if granter can grant these specific permissions
+        const permissionCheck = await ctx.permissionManager.canGrantPermissions(
+          repoDid,
+          grantedByDid,
+          permissions as RepositoryPermissions,
+        )
+
+        if (!permissionCheck.canGrant) {
+          throw new AuthRequiredError(
+            permissionCheck.reason ||
+              'Insufficient permissions to grant access',
           )
         }
 
         // Validate that the target user exists by checking if it's a valid DID
-        // In a full implementation, you might want to verify the DID exists in your system
         if (!userDid.startsWith('did:')) {
           throw new InvalidRequestError('Invalid user DID format')
         }

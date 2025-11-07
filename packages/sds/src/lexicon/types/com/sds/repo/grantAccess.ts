@@ -55,15 +55,21 @@ export interface HandlerError {
 
 export type HandlerOutput = HandlerError | HandlerSuccess
 
-/** Repository access permissions */
+/** Repository access permissions aligned with OAuth's granular action model */
 export interface Permissions {
   $type?: 'com.sds.repo.grantAccess#permissions'
   /** Permission to read repository content. */
   read: boolean
-  /** Permission to write/modify repository content. */
-  write: boolean
+  /** Permission to create new records in the repository. */
+  create: boolean
+  /** Permission to update existing records in the repository. */
+  update: boolean
+  /** Permission to delete records from the repository. */
+  delete: boolean
   /** Administrative permissions (manage collaborators, etc.). */
   admin?: boolean
+  /** Owner permissions (full control including ownership transfer). */
+  owner?: boolean
 }
 
 const hashPermissions = 'permissions'

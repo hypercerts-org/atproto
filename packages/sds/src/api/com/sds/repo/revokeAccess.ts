@@ -1,7 +1,6 @@
 // SDS Revoke Access Endpoint - Allows repository owners to revoke access from collaborators
 import { AuthRequiredError, InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from '../../../../lexicon'
-import { ids } from '../../../../lexicon/lexicons'
 import { SdsAppContext } from '../../../../sds-context'
 import { SdsPermissionError } from '../../../../types'
 
@@ -28,32 +27,22 @@ export default function (server: Server, ctx: SdsAppContext) {
 
         const repoDid = account.did
 
-        // Check if the authenticated user has permission to revoke access
-        // Repository owners and users with admin permissions can revoke access
-        const isOwner = await ctx.permissionManager.isOwner(
-          repoDid,
-          revokedByDid,
-        )
-        const hasAdminAccess = await ctx.permissionManager.checkAccess(
-          repoDid,
-          revokedByDid,
-          'admin',
-        )
-
-        console.log(
-          `[SDS] Revoke access permission check - Owner: ${isOwner}, Admin: ${hasAdminAccess}, User: ${revokedByDid}, Repo: ${repoDid}`,
-        )
-
-        if (!isOwner && !hasAdminAccess) {
-          throw new AuthRequiredError(
-            'Only repository owners and admin users can revoke access from collaborators',
-          )
+        // Prevent revoking from repository itself
+        if (userDid === repoDid) {
+          throw new InvalidRequestError('Invalid target user DID')
         }
 
-        // Prevent users from revoking access from themselves (doesn't make sense)
-        if (userDid === repoDid) {
-          throw new InvalidRequestError(
-            'Cannot revoke access from repository owner',
+        // Check if revoker can manage the target user
+        const managementCheck = await ctx.permissionManager.canManageUser(
+          repoDid,
+          revokedByDid,
+          userDid,
+        )
+
+        if (!managementCheck.canManage) {
+          throw new AuthRequiredError(
+            managementCheck.reason ||
+              'Insufficient permissions to revoke access',
           )
         }
 
