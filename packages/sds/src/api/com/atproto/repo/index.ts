@@ -13,6 +13,7 @@ import putRecord from './putRecord'
 import uploadBlob from './uploadBlob'
 
 export default function (server: Server, ctx: AppContext) {
+  // TODO: remove these endpoints that are overwritten by SDS-specific versions
   // Skip methods that use findAccount if SDS - they will be registered by SDS-specific versions
   if (!(ctx instanceof SdsAppContext)) {
     applyWrites(server, ctx)

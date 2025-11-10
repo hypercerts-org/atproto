@@ -21,7 +21,7 @@ export default function (server: Server, ctx: SdsAppContext) {
         calcPoints: () => 10,
       },
     ],
-    handler: async ({ input, auth }) => {
+    handler: async ({ input, auth: _auth }) => {
       const { name, description, handle, creatorDid } = input.body
 
       if (!creatorDid) {
@@ -85,7 +85,14 @@ export default function (server: Server, ctx: SdsAppContext) {
         await ctx.permissionManager.grantAccess(
           orgDid,
           creatorDid,
-          { read: true, write: true, admin: true, owner: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+            admin: true,
+            owner: true,
+          },
           creatorDid, // Self-granted as the creator
         )
 
@@ -110,7 +117,9 @@ export default function (server: Server, ctx: SdsAppContext) {
             // The creating user has full ownership rights through SDS RBAC
             permissions: {
               read: true,
-              write: true,
+              create: true,
+              update: true,
+              delete: true,
               admin: true,
               owner: true,
             },

@@ -1,10 +1,11 @@
 import React, { ReactNode, createContext, useContext, useState } from 'react'
+import { RepositoryPermissions } from '../services/collaboration-service.ts'
 
 export interface Repository {
   did: string
   handle: string
   accessType: 'owner' | 'shared' | 'none'
-  permissions?: { read: boolean; write: boolean; admin?: boolean }
+  permissions?: RepositoryPermissions
   collaboratorCount?: number
   isOwner?: boolean // Helper to quickly check if current user is owner
   createdAt?: string
@@ -65,10 +66,8 @@ export function RepositoryProvider({ children }: RepositoryProviderProps) {
   const updateCollaborators = (did: string, collaboratorCount: number) => {
     setRepositories((prev) =>
       prev.map((repo) =>
-        repo.did === did
-          ? { ...repo, collaboratorCount }
-          : repo
-      )
+        repo.did === did ? { ...repo, collaboratorCount } : repo,
+      ),
     )
   }
 

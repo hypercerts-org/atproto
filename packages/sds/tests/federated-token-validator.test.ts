@@ -9,9 +9,9 @@
  * - Supports both Bearer and DPoP tokens
  */
 
-import { FederatedTokenValidator } from '../src/oauth/federated-token-validator'
+import { JoseKey, Keyset } from '@atproto/oauth-provider'
 import { AuthRequiredError } from '@atproto/xrpc-server'
-import { Keyset, JoseKey } from '@atproto/oauth-provider'
+import { FederatedTokenValidator } from '../src/oauth/federated-token-validator'
 
 // Mock fetch for testing
 global.fetch = jest.fn()

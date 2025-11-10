@@ -8,7 +8,8 @@ export const SDS_LEXICONS: LexiconDoc[] = [
     defs: {
       main: {
         type: 'procedure',
-        description: 'Create a new organization with its own repository that can be shared with collaborators.',
+        description:
+          'Create a new organization with its own repository that can be shared with collaborators.',
         input: {
           encoding: 'application/json',
           schema: {
@@ -18,31 +19,38 @@ export const SDS_LEXICONS: LexiconDoc[] = [
               name: {
                 type: 'string',
                 maxLength: 100,
-                description: 'The name of the organization.'
+                description: 'The name of the organization.',
               },
               description: {
                 type: 'string',
                 maxLength: 500,
-                description: 'Optional description of the organization.'
+                description: 'Optional description of the organization.',
               },
               handle: {
                 type: 'string',
                 format: 'handle',
-                description: 'Optional custom handle for the organization.'
+                description: 'Optional custom handle for the organization.',
               },
               creatorDid: {
                 type: 'string',
                 format: 'did',
-                description: 'DID of the user creating the organization.'
-              }
-            }
-          }
+                description: 'DID of the user creating the organization.',
+              },
+            },
+          },
         },
         output: {
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['did', 'handle', 'name', 'createdAt', 'permissions', 'accessType'],
+            required: [
+              'did',
+              'handle',
+              'name',
+              'createdAt',
+              'permissions',
+              'accessType',
+            ],
             properties: {
               did: { type: 'string', format: 'did' },
               handle: { type: 'string', format: 'handle' },
@@ -51,14 +59,14 @@ export const SDS_LEXICONS: LexiconDoc[] = [
               createdAt: { type: 'string', format: 'datetime' },
               permissions: {
                 type: 'ref',
-                ref: 'com.sds.repo.grantAccess#permissions'
+                ref: 'com.sds.repo.grantAccess#permissions',
               },
-              accessType: { type: 'string', knownValues: ['owner'] }
-            }
-          }
-        }
-      }
-    }
+              accessType: { type: 'string', knownValues: ['owner'] },
+            },
+          },
+        },
+      },
+    },
   },
   {
     lexicon: 1,
@@ -66,16 +74,17 @@ export const SDS_LEXICONS: LexiconDoc[] = [
     defs: {
       main: {
         type: 'query',
-        description: 'List organizations that the authenticated user has access to.',
+        description:
+          'List organizations that the authenticated user has access to.',
         parameters: {
           type: 'params',
           properties: {
             userDid: {
               type: 'string',
               format: 'did',
-              description: 'DID of the user to list organizations for.'
-            }
-          }
+              description: 'DID of the user to list organizations for.',
+            },
+          },
         },
         output: {
           encoding: 'application/json',
@@ -87,12 +96,12 @@ export const SDS_LEXICONS: LexiconDoc[] = [
                 type: 'array',
                 items: {
                   type: 'ref',
-                  ref: '#organization'
-                }
-              }
-            }
-          }
-        }
+                  ref: '#organization',
+                },
+              },
+            },
+          },
+        },
       },
       organization: {
         type: 'object',
@@ -102,38 +111,38 @@ export const SDS_LEXICONS: LexiconDoc[] = [
           did: {
             type: 'string',
             format: 'did',
-            description: 'The DID of the organization repository.'
+            description: 'The DID of the organization repository.',
           },
           handle: {
             type: 'string',
             format: 'handle',
-            description: 'The handle of the organization.'
+            description: 'The handle of the organization.',
           },
           name: {
             type: 'string',
-            description: 'The name of the organization.'
+            description: 'The name of the organization.',
           },
           description: {
             type: 'string',
-            description: 'The description of the organization.'
+            description: 'The description of the organization.',
           },
           createdAt: {
             type: 'string',
             format: 'datetime',
-            description: 'When the organization was created.'
+            description: 'When the organization was created.',
           },
           permissions: {
             type: 'ref',
-            ref: 'com.sds.repo.grantAccess#permissions'
+            ref: 'com.sds.repo.grantAccess#permissions',
           },
           accessType: {
             type: 'string',
             knownValues: ['owner', 'collaborator'],
-            description: 'The users access type.'
-          }
-        }
-      }
-    }
+            description: 'The users access type.',
+          },
+        },
+      },
+    },
   },
   {
     lexicon: 1,
@@ -141,7 +150,8 @@ export const SDS_LEXICONS: LexiconDoc[] = [
     defs: {
       main: {
         type: 'procedure',
-        description: 'Grant access permissions to a user for a shared repository.',
+        description:
+          'Grant access permissions to a user for a shared repository.',
         input: {
           encoding: 'application/json',
           schema: {
@@ -152,11 +162,11 @@ export const SDS_LEXICONS: LexiconDoc[] = [
               userDid: { type: 'string', format: 'did' },
               permissions: {
                 type: 'ref',
-                ref: '#permissions'
-              }
-            }
-          }
-        }
+                ref: '#permissions',
+              },
+            },
+          },
+        },
       },
       permissions: {
         type: 'object',
@@ -165,24 +175,26 @@ export const SDS_LEXICONS: LexiconDoc[] = [
         properties: {
           read: {
             type: 'boolean',
-            description: 'Permission to read repository content.'
+            description: 'Permission to read repository content.',
           },
           write: {
             type: 'boolean',
-            description: 'Permission to write/modify repository content.'
+            description: 'Permission to write/modify repository content.',
           },
           admin: {
             type: 'boolean',
-            description: 'Administrative permissions (manage collaborators, etc.).'
+            description:
+              'Administrative permissions (manage collaborators, etc.).',
           },
           owner: {
             type: 'boolean',
-            description: 'Ownership permissions (transfer repository, full control).'
-          }
-        }
-      }
-    }
-  }
+            description:
+              'Ownership permissions (transfer repository, full control).',
+          },
+        },
+      },
+    },
+  },
 ]
 
 // Helper function to add SDS lexicons to an agent

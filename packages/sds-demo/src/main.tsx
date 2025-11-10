@@ -1,7 +1,6 @@
 import './index.css'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './app.tsx'
 import { AuthProvider } from './auth/auth-provider.tsx'
@@ -10,11 +9,14 @@ import {
   HANDLE_RESOLVER_URL,
   OAUTH_SCOPE,
   PLC_DIRECTORY_URL,
-  SDS_SERVER_URL,
   SIGN_UP_URL,
 } from './constants.ts'
 
 const redirectUrl = new URL(window.location.origin)
+
+if (redirectUrl.hostname === 'localhost') {
+  redirectUrl.hostname = '127.0.0.1'
+}
 redirectUrl.search = new URLSearchParams({
   env: ENV,
   handle_resolver: HANDLE_RESOLVER_URL,

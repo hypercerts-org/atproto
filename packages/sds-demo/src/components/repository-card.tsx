@@ -1,7 +1,11 @@
 // Repository Card Component - Display repository info with collaboration features
 import { Repository } from '../contexts/repository-context.tsx'
-import { Button } from './button.tsx'
 import { useListCollaboratorsQuery } from '../queries/use-collaboration-queries.ts'
+import { Button } from './button.tsx'
+import {
+  DetailedPermissionBadges,
+  PermissionBadge,
+} from './permission-badge.tsx'
 
 interface RepositoryCardProps {
   repository: Repository
@@ -16,11 +20,13 @@ export function RepositoryCard({
   onSelect,
   onManageCollaborators,
 }: RepositoryCardProps) {
-  // Query to get collaborator count for this repository
-  // Only enable for owners to reduce simultaneous API calls on mount
+  const canManage = Boolean(
+    repository.permissions?.owner || repository.permissions?.admin,
+  )
+
   const collaboratorsQuery = useListCollaboratorsQuery(
     repository.did,
-    repository.accessType === 'owner',
+    canManage,
   )
   const collaboratorCount = collaboratorsQuery.data?.collaborators?.length || 0
 
@@ -34,12 +40,20 @@ export function RepositoryCard({
     >
       {/* Repository Header */}
       <div className="mb-2 flex items-center justify-between">
-        <h3
-          className="cursor-pointer font-medium text-gray-900"
-          onClick={onSelect}
-        >
-          {repository.handle}
-        </h3>
+        <div className="flex items-center space-x-2">
+          <h3
+            className="cursor-pointer font-medium text-gray-900"
+            onClick={onSelect}
+          >
+            {repository.handle}
+          </h3>
+          {repository.permissions && (
+            <PermissionBadge
+              permissions={repository.permissions}
+              size="small"
+            />
+          )}
+        </div>
         <span
           className={`rounded-full px-2 py-1 text-xs font-medium ${
             repository.accessType === 'owner'
@@ -64,28 +78,9 @@ export function RepositoryCard({
       {/* Permissions and Actions */}
       <div className="flex flex-col space-y-3">
         {/* Permissions Display */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex space-x-2">
-            <span
-              className={`rounded px-2 py-1 ${
-                repository.permissions?.read
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              Read: {repository.permissions?.read ? '✓' : '✗'}
-            </span>
-            <span
-              className={`rounded px-2 py-1 ${
-                repository.permissions?.write
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              Write: {repository.permissions?.write ? '✓' : '✗'}
-            </span>
-          </div>
-        </div>
+        {repository.permissions && (
+          <DetailedPermissionBadges permissions={repository.permissions} />
+        )}
 
         {/* Collaborator Info and Management */}
         <div className="flex items-center justify-between">
@@ -95,8 +90,8 @@ export function RepositoryCard({
               : 'No collaborators'}
           </span>
 
-          {/* Manage Collaborators Button - Only show for owners */}
-          {repository.accessType === 'owner' && (
+          {/* Manage Collaborators Button - Owners & Admins */}
+          {canManage && (
             <Button
               onClick={(e) => {
                 e.stopPropagation()

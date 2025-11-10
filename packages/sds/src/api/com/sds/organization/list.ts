@@ -31,6 +31,38 @@ export default function (server: Server, ctx: SdsAppContext) {
             )
 
             if (account && account.handle && permissions) {
+              const isOwner = repoDid === userDid || permissions.owner === true
+
+              const normalizedPermissions = {
+                read: permissions.read ?? false,
+                create: permissions.create ?? false,
+                update: permissions.update ?? false,
+                delete: permissions.delete ?? false,
+                admin: permissions.admin ?? false,
+                owner: permissions.owner ?? false,
+              }
+
+              if (isOwner) {
+                normalizedPermissions.owner = true
+                normalizedPermissions.admin = true
+                normalizedPermissions.read = true
+                normalizedPermissions.create = true
+                normalizedPermissions.update = true
+                normalizedPermissions.delete = true
+              }
+
+              const hasSharedAccess =
+                normalizedPermissions.read ||
+                normalizedPermissions.create ||
+                normalizedPermissions.update ||
+                normalizedPermissions.delete
+
+              const accessType = normalizedPermissions.owner
+                ? 'owner'
+                : hasSharedAccess
+                  ? 'shared'
+                  : 'none'
+
               // This is a valid organization/repository
               const org = {
                 did: repoDid,
@@ -38,12 +70,8 @@ export default function (server: Server, ctx: SdsAppContext) {
                 name: account.handle.replace(/-\d+$/, ''), // Remove timestamp suffix for display
                 description: '', // Organizations don't have descriptions stored in account
                 createdAt: account.createdAt || new Date().toISOString(),
-                permissions: {
-                  read: permissions.read,
-                  write: permissions.write,
-                  admin: permissions.admin || false,
-                },
-                accessType: permissions.admin ? 'owner' : 'collaborator',
+                permissions: normalizedPermissions,
+                accessType,
               }
               organizations.push(org)
             }

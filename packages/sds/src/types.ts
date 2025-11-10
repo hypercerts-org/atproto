@@ -1,11 +1,20 @@
 // SDS-specific types and interfaces
 
+/**
+ * Repository permissions aligned with OAuth's granular action model
+ * This ensures consistency between SDS RBAC and OAuth scope validation
+ */
 export interface RepositoryPermissions {
   read: boolean
-  write: boolean
+  create: boolean
+  update: boolean
+  delete: boolean
   admin?: boolean
   owner?: boolean
 }
+
+// Role hierarchy for permission checks
+export type RepositoryRole = 'owner' | 'admin' | 'collaborator' | 'none'
 
 export interface SharingConfig {
   maxCollaborators: number

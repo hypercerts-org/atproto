@@ -14112,21 +14112,36 @@ export const schemaDict = {
       },
       permissions: {
         type: 'object',
-        description: 'Repository access permissions',
-        required: ['read', 'write'],
+        description:
+          "Repository access permissions aligned with OAuth's granular action model",
+        required: ['read', 'create', 'update', 'delete'],
         properties: {
           read: {
             type: 'boolean',
             description: 'Permission to read repository content.',
           },
-          write: {
+          create: {
             type: 'boolean',
-            description: 'Permission to write/modify repository content.',
+            description: 'Permission to create new records in the repository.',
+          },
+          update: {
+            type: 'boolean',
+            description:
+              'Permission to update existing records in the repository.',
+          },
+          delete: {
+            type: 'boolean',
+            description: 'Permission to delete records from the repository.',
           },
           admin: {
             type: 'boolean',
             description:
               'Administrative permissions (manage collaborators, etc.).',
+          },
+          owner: {
+            type: 'boolean',
+            description:
+              'Owner permissions (full control including ownership transfer).',
           },
         },
       },
@@ -14298,6 +14313,66 @@ export const schemaDict = {
             name: 'AccessNotFound',
             description:
               'The specified user does not have active access to this repository.',
+          },
+        ],
+      },
+    },
+  },
+  ComSdsRepoTransferOwnership: {
+    lexicon: 1,
+    id: 'com.sds.repo.transferOwnership',
+    defs: {
+      main: {
+        type: 'procedure',
+        description:
+          'Transfer repository ownership to another user. Only the current owner can perform this operation.',
+        input: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['repo', 'newOwnerDid'],
+            properties: {
+              repo: {
+                type: 'string',
+                format: 'at-identifier',
+                description: 'The handle or DID of the repository.',
+              },
+              newOwnerDid: {
+                type: 'string',
+                format: 'did',
+                description: 'The DID of the new owner.',
+              },
+            },
+          },
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['success', 'previousOwner', 'newOwner', 'transferredAt'],
+            properties: {
+              success: {
+                type: 'boolean',
+              },
+              previousOwner: {
+                type: 'string',
+                format: 'did',
+              },
+              newOwner: {
+                type: 'string',
+                format: 'did',
+              },
+              transferredAt: {
+                type: 'string',
+                format: 'datetime',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'Unauthorized',
+            description: 'Only the repository owner can transfer ownership.',
           },
         ],
       },
@@ -19180,6 +19255,7 @@ export const ids = {
   ComSdsRepoGrantAccess: 'com.sds.repo.grantAccess',
   ComSdsRepoListCollaborators: 'com.sds.repo.listCollaborators',
   ComSdsRepoRevokeAccess: 'com.sds.repo.revokeAccess',
+  ComSdsRepoTransferOwnership: 'com.sds.repo.transferOwnership',
   ToolsOzoneCommunicationCreateTemplate:
     'tools.ozone.communication.createTemplate',
   ToolsOzoneCommunicationDefs: 'tools.ozone.communication.defs',

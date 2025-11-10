@@ -5,7 +5,9 @@ import { SDS_SERVER_URL } from '../constants.ts'
 
 export interface RepositoryPermissions {
   read: boolean
-  write: boolean
+  create: boolean
+  update: boolean
+  delete: boolean
   admin?: boolean
   owner?: boolean
 }
@@ -171,7 +173,19 @@ export async function getRepositoryPermissions(
       '[CollabService] Permissions retrieved successfully:',
       response.data,
     )
-    return response.data
+    const permissions = response.data.permissions || {}
+
+    return {
+      ...response.data,
+      permissions: {
+        read: permissions.read ?? false,
+        create: permissions.create ?? false,
+        update: permissions.update ?? false,
+        delete: permissions.delete ?? false,
+        admin: permissions.admin ?? false,
+        owner: permissions.owner ?? false,
+      },
+    }
   } catch (error) {
     console.error('[CollabService] Get permissions failed:', error)
     console.error('[CollabService] Error details:', {
@@ -207,7 +221,13 @@ export function formatCollaboratorName(collaborator: Collaborator): string {
 export function getPermissionLevel(permissions: RepositoryPermissions): string {
   if (permissions.owner) return 'Owner'
   if (permissions.admin) return 'Admin'
-  if (permissions.write) return 'Read & Write'
+  const hasWriteAccess =
+    permissions.create === true ||
+    permissions.update === true ||
+    permissions.delete === true
+
+  if (permissions.read && hasWriteAccess) return 'Read & Write'
+  if (hasWriteAccess) return 'Write Only'
   if (permissions.read) return 'Read Only'
   return 'No Access'
 }

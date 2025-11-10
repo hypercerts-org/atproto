@@ -128,7 +128,9 @@ export class TestNetworkWithSds extends TestNetworkNoAppView {
     await lexiconAuthorityProfile.migrateTo(sds)
     await lexiconAuthorityProfile.createRecords()
 
-    console.log(`Lexicon authority ${lexiconAuthorityProfile.did} migrated to both PDS and SDS servers`)
+    console.log(
+      `Lexicon authority ${lexiconAuthorityProfile.did} migrated to both PDS and SDS servers`,
+    )
     console.log(`PDS URL: ${pds.url}, SDS URL: ${sds.url}`)
 
     await ozone.addAdminDid(ozoneServiceProfile.did)

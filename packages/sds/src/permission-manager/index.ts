@@ -20,17 +20,22 @@ export class SdsPermissionManager {
     action: keyof RepositoryPermissions,
   ): Promise<boolean> {
     try {
-      // First check if the user is the owner of the repository
-      const isOwner = await this.isOwner(repoDid, userDid)
-      if (isOwner) {
-        // Owners always have full access to their repositories
-        return true
-      }
-
-      // If not owner, check for explicit permissions
       const permissions = await this.getPermissions(repoDid, userDid)
       if (!permissions) return false
 
+      // Owners have implicit access to everything
+      if (permissions.owner === true) {
+        return true
+      }
+
+      // Admins have implicit access to all CRUD operations
+      if (permissions.admin === true) {
+        if (['read', 'create', 'update', 'delete', 'admin'].includes(action)) {
+          return true
+        }
+      }
+
+      // Otherwise check specific permission
       return permissions[action] ?? false
     } catch (error) {
       console.error('Error checking repository access:', error)
@@ -49,6 +54,108 @@ export class SdsPermissionManager {
       console.error('Error checking repository ownership:', error)
       return false
     }
+  }
+
+  /**
+   * Get the role of a user for a repository
+   */
+  async getUserRole(
+    repoDid: string,
+    userDid: string,
+  ): Promise<'owner' | 'admin' | 'collaborator' | 'none'> {
+    try {
+      const permissions = await this.getPermissions(repoDid, userDid)
+      if (!permissions) return 'none'
+
+      if (permissions.owner === true) return 'owner'
+      if (permissions.admin === true) return 'admin'
+
+      if (
+        permissions.read ||
+        permissions.create ||
+        permissions.update ||
+        permissions.delete
+      ) {
+        return 'collaborator'
+      }
+
+      return 'none'
+    } catch (error) {
+      console.error('Error getting user role:', error)
+      return 'none'
+    }
+  }
+
+  /**
+   * Check if user can manage a target user
+   * - Owner can manage anyone
+   * - Admin can manage other admins and collaborators (but not owner)
+   * - Collaborators cannot manage anyone
+   */
+  async canManageUser(
+    repoDid: string,
+    managerDid: string,
+    targetDid: string,
+  ): Promise<{ canManage: boolean; reason?: string }> {
+    try {
+      if (managerDid === targetDid) {
+        return { canManage: false, reason: 'Cannot manage yourself' }
+      }
+
+      const managerRole = await this.getUserRole(repoDid, managerDid)
+      const targetRole = await this.getUserRole(repoDid, targetDid)
+
+      if (managerRole === 'owner') {
+        return { canManage: true }
+      }
+
+      if (managerRole === 'admin') {
+        if (targetRole === 'owner') {
+          return {
+            canManage: false,
+            reason: 'Admins cannot manage the owner',
+          }
+        }
+        return { canManage: true }
+      }
+
+      return { canManage: false, reason: 'Insufficient permissions' }
+    } catch (error) {
+      return { canManage: false, reason: 'Error checking permissions' }
+    }
+  }
+
+  /**
+   * Check if user can grant specific permissions
+   * - Only owner can grant owner or admin roles
+   * - Admin can grant collaborator permissions only
+   */
+  async canGrantPermissions(
+    repoDid: string,
+    granterDid: string,
+    permissionsToGrant: RepositoryPermissions,
+  ): Promise<{ canGrant: boolean; reason?: string }> {
+    const granterRole = await this.getUserRole(repoDid, granterDid)
+
+    if (permissionsToGrant.owner === true && granterRole !== 'owner') {
+      return {
+        canGrant: false,
+        reason: 'Only repository owner can grant owner role',
+      }
+    }
+
+    if (permissionsToGrant.admin === true && granterRole !== 'owner') {
+      return {
+        canGrant: false,
+        reason: 'Only repository owner can grant admin role',
+      }
+    }
+
+    if (granterRole === 'owner' || granterRole === 'admin') {
+      return { canGrant: true }
+    }
+
+    return { canGrant: false, reason: 'Insufficient permissions' }
   }
 
   /**
