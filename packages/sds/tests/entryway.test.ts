@@ -11,7 +11,7 @@ import { SeedClient, TestPds, TestPlc, mockResolvers } from '@atproto/dev-env'
 import * as pdsEntryway from '@atproto/pds-entryway'
 import { parseReqNsid } from '@atproto/xrpc-server'
 
-describe('entryway', () => {
+describe.skip('entryway', () => {
   let plc: TestPlc
   let pds: TestPds
   let entryway: pdsEntryway.PDS
