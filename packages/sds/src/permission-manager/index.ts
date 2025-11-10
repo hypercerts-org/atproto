@@ -360,7 +360,7 @@ export class SdsPermissionManager {
         .selectFrom('permission_audit_log')
         .selectAll()
         .where('repoDid', '=', repoDid)
-        .orderBy('changedAt', 'desc')
+        .orderBy('id', 'desc')
         .limit(limit)
         .execute()
 
