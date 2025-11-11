@@ -4,7 +4,6 @@ import { RepositoryPermissions } from '../src/types'
 
 describe('SDS API Endpoints', () => {
   let network: TestNetworkWithSds
-  let agent: AtpAgent
   let repoOwner: { did: string; agent: AtpAgent }
   let collaborator: { did: string; agent: AtpAgent }
   let unauthorizedUser: { did: string; agent: AtpAgent }
@@ -14,66 +13,60 @@ describe('SDS API Endpoints', () => {
       dbPostgresSchema: 'sds_api_endpoints_test',
     })
 
-    // Create test users
-    const sc = network.serviceHeaders
-    agent = network.sds.getClient()
+    // Create test users on PDS (account management is still handled by PDS)
+    const pdsAgent = network.pds.getClient()
 
     // Create repository owner
-    const ownerAccount = await agent.com.atproto.server.createAccount(
-      {
-        handle: 'repo-owner.test',
-        email: 'owner@test.com',
-        password: 'password123',
-      },
-      { headers: sc },
-    )
+    const ownerAccount = await pdsAgent.com.atproto.server.createAccount({
+      handle: 'repo-owner.test',
+      email: 'owner@test.com',
+      password: 'password123',
+    })
 
     repoOwner = {
       did: ownerAccount.data.did,
       agent: new AtpAgent({ service: network.sds.url }),
     }
-    await repoOwner.agent.login({
-      identifier: 'repo-owner.test',
-      password: 'password123',
-    })
+    repoOwner.agent.api.setHeader(
+      'authorization',
+      `Bearer ${ownerAccount.data.accessJwt}`,
+    )
 
     // Create collaborator
-    const collaboratorAccount = await agent.com.atproto.server.createAccount(
+    const collaboratorAccount = await pdsAgent.com.atproto.server.createAccount(
       {
         handle: 'collaborator.test',
         email: 'collaborator@test.com',
         password: 'password123',
       },
-      { headers: sc },
     )
 
     collaborator = {
       did: collaboratorAccount.data.did,
       agent: new AtpAgent({ service: network.sds.url }),
     }
-    await collaborator.agent.login({
-      identifier: 'collaborator.test',
-      password: 'password123',
-    })
+    collaborator.agent.api.setHeader(
+      'authorization',
+      `Bearer ${collaboratorAccount.data.accessJwt}`,
+    )
 
     // Create unauthorized user
-    const unauthorizedAccount = await agent.com.atproto.server.createAccount(
+    const unauthorizedAccount = await pdsAgent.com.atproto.server.createAccount(
       {
         handle: 'unauthorized.test',
         email: 'unauthorized@test.com',
         password: 'password123',
       },
-      { headers: sc },
     )
 
     unauthorizedUser = {
       did: unauthorizedAccount.data.did,
       agent: new AtpAgent({ service: network.sds.url }),
     }
-    await unauthorizedUser.agent.login({
-      identifier: 'unauthorized.test',
-      password: 'password123',
-    })
+    unauthorizedUser.agent.api.setHeader(
+      'authorization',
+      `Bearer ${unauthorizedAccount.data.accessJwt}`,
+    )
   })
 
   afterAll(async () => {
