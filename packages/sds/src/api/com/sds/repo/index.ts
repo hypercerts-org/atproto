@@ -9,6 +9,7 @@ import listCollaborators from './listCollaborators'
 import putRecord from './putRecord'
 import revokeAccess from './revokeAccess'
 import transferOwnership from './transferOwnership'
+import uploadBlob from './uploadBlob'
 
 export default function (server: Server, ctx: SdsAppContext) {
   // SDS-specific overrides (support shared access)
@@ -16,6 +17,7 @@ export default function (server: Server, ctx: SdsAppContext) {
   putRecord(server, ctx)
   applyWrites(server, ctx)
   deleteRecord(server, ctx)
+  uploadBlob(server, ctx)
 
   grantAccess(server, ctx)
   revokeAccess(server, ctx)
