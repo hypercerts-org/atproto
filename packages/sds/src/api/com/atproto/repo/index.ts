@@ -20,11 +20,11 @@ export default function (server: Server, ctx: AppContext) {
     createRecord(server, ctx)
     deleteRecord(server, ctx)
     putRecord(server, ctx)
+    uploadBlob(server, ctx)
   }
   describeRepo(server, ctx)
   getRecord(server, ctx)
   listRecords(server, ctx)
-  uploadBlob(server, ctx)
   listMissingBlobs(server, ctx)
   importRepo(server, ctx)
 }
