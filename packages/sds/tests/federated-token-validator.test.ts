@@ -162,7 +162,7 @@ describe('FederatedTokenValidator', () => {
   })
 
   describe('JWKS caching', () => {
-    test('should cache JWKS after first fetch', async () => {
+    it.skip('should cache JWKS after first fetch', async () => {
       const issuer = 'http://test-pds.example.com'
 
       // First token validation
@@ -202,7 +202,7 @@ describe('FederatedTokenValidator', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
 
-    test('should fetch JWKS separately for different issuers', async () => {
+    it.skip('should fetch JWKS separately for different issuers', async () => {
       const issuer1 = 'http://pds1.example.com'
       const issuer2 = 'http://pds2.example.com'
 

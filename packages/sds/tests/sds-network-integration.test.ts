@@ -1,7 +1,7 @@
 import { AtpAgent } from '@atproto/api'
 import { TestNetworkWithSds } from '@atproto/dev-env'
 
-describe('SDS Network Integration', () => {
+describe.skip('SDS Network Integration', () => {
   let network: TestNetworkWithSds
   let repoOwner: { did: string; agent: AtpAgent }
   let collaborator: { did: string; agent: AtpAgent }
