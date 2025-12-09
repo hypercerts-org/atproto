@@ -7,7 +7,6 @@ import {
   useRevokeAccessMutation,
 } from '../queries/use-collaboration-queries.ts'
 import {
-  type RepositoryPermissions,
   formatCollaboratorName,
   getPermissionLevel,
   validateDid,
@@ -32,10 +31,6 @@ export function CollaborationModal({
     'collaborators',
   )
   const [userDid, setUserDid] = useState('')
-  const [permissions, setPermissions] = useState<RepositoryPermissions>({
-    read: true,
-    write: false,
-  })
   const [selectedRole, setSelectedRole] = useState<
     'viewer' | 'contributor' | 'admin'
   >('viewer')
@@ -45,17 +40,35 @@ export function CollaborationModal({
     viewer: {
       name: 'Viewer',
       description: 'Can view repository content',
-      permissions: { read: true, write: false, admin: false },
+      permissions: {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+        admin: false,
+      },
     },
     contributor: {
       name: 'Contributor',
       description: 'Can view and modify repository content',
-      permissions: { read: true, write: true, admin: false },
+      permissions: {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+        admin: false,
+      },
     },
     admin: {
       name: 'Admin',
       description: 'Full access including user management',
-      permissions: { read: true, write: true, admin: true },
+      permissions: {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+        admin: true,
+      },
     },
   }
 
@@ -90,7 +103,6 @@ export function CollaborationModal({
       // Reset form
       setUserDid('')
       setSelectedRole('viewer')
-      setPermissions({ read: true, write: false })
       setActiveTab('collaborators') // Switch back to collaborators tab
     } catch (error) {
       console.error('Failed to grant access:', error)
