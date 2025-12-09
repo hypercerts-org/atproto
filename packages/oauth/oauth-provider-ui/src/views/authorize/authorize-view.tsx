@@ -102,10 +102,6 @@ export function AuthorizeView({
     if (view === View.Welcome && homeView !== View.Welcome) setView(homeView)
   }, [view, homeView])
 
-  useEffect(() => {
-    console.log(props)
-  }, [props])
-
   if (view === View.Welcome) {
     return (
       <WelcomeView
