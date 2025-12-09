@@ -74,6 +74,23 @@ export const oauthClientMetadataSchema = z.object({
 
   // https://datatracker.ietf.org/doc/html/rfc9396#section-14.5
   authorization_details_types: z.array(z.string()).optional(),
+
+  /**
+   * Client-specific branding configuration
+   * Allows trusted clients to customize the appearance of OAuth authorization pages
+   * via arbitrary CSS. Only used for trusted clients (configured via trustedClients in PDS config)
+   * @see {@link https://github.com/bluesky-social/atproto/blob/main/packages/pds/src/config/config.ts}
+   */
+  branding: z
+    .object({
+      /**
+       * Arbitrary CSS to inject into authorization pages
+       * Only used for trusted clients (configured via trustedClients in PDS config)
+       * @see {@link https://github.com/bluesky-social/atproto/blob/main/packages/pds/src/config/config.ts}
+       */
+      css: z.string().optional(),
+    })
+    .optional(),
 })
 
 export type OAuthClientMetadata = z.infer<typeof oauthClientMetadataSchema>
