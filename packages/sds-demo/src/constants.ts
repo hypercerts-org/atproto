@@ -45,6 +45,13 @@ export const SDS_SERVER_URL: string =
 // Note: These scopes are issued by PDS but NOT validated by SDS during authorization.
 // SDS uses federated JWT validation (fetches JWKS from PDS) to verify token authenticity,
 // then authorizes access solely based on SDS database permissions.
+// Note: include:com.atproto.moderation.basePermissions is only available in local dev environment
+// (localhost:2583) where the lexicon is registered via dev-env service profile.
+// External PDS instances don't have this lexicon, so we only include it for localhost.
+const isLocalDevPds =
+  ENV === 'development' &&
+  (SIGN_UP_URL.includes('localhost') || SIGN_UP_URL.includes('127.0.0.1'))
+
 export const OAUTH_SCOPE: string =
   searchParams.get('scope') ??
   (ENV === 'development'
@@ -53,7 +60,10 @@ export const OAUTH_SCOPE: string =
         'account:email',
         'identity:*',
         'repo:*',
-        'include:com.atproto.moderation.basePermissions',
+        // Only include moderation permissions lexicon if using local dev PDS
+        ...(isLocalDevPds
+          ? ['include:com.atproto.moderation.basePermissions']
+          : []),
       ].join(' ')
     : [
         'atproto',
