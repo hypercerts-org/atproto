@@ -137,11 +137,12 @@ module.exports = defineConfig((commandLineArguments) => {
           if (devMode) return // Skip in development (uses loopback client)
 
           // Detect deployment URL from environment
-          // VERCEL_URL is available during Vercel builds
-          // Fallback to VERCEL_PROJECT_PRODUCTION_URL or CLIENT_URL for custom config
+          // VERCEL_URL contains the current deployment URL (preview or production)
+          // VERCEL_PROJECT_PRODUCTION_URL contains the production URL (fallback)
+          // CLIENT_URL can be used for custom configurations
           const deploymentUrl =
-            process.env.VERCEL_PROJECT_PRODUCTION_URL ||
             process.env.VERCEL_URL ||
+            process.env.VERCEL_PROJECT_PRODUCTION_URL ||
             process.env.CLIENT_URL
 
           if (!deploymentUrl) {
@@ -176,9 +177,7 @@ module.exports = defineConfig((commandLineArguments) => {
             source: JSON.stringify(metadata, null, 2),
           })
 
-          console.log(
-            `Generated client-metadata.json for ${clientUrl}`,
-          )
+          console.log(`Generated client-metadata.json for ${clientUrl}`)
         },
       },
 
