@@ -137,12 +137,14 @@ module.exports = defineConfig((commandLineArguments) => {
           if (devMode) return // Skip in development (uses loopback client)
 
           // Detect deployment URL from environment
+          // VERCEL_PROJECT_PRODUCTION_URL is set in all deployments but always points to production
           // VERCEL_URL contains the current deployment URL (preview or production)
-          // VERCEL_PROJECT_PRODUCTION_URL contains the production URL (fallback)
-          // CLIENT_URL can be used for custom configurations
+          // For production: prefer VERCEL_PROJECT_PRODUCTION_URL (custom domain)
+          // For preview: use VERCEL_URL (preview-specific URL)
           const deploymentUrl =
+            (process.env.VERCEL_ENV === 'production' &&
+              process.env.VERCEL_PROJECT_PRODUCTION_URL) ||
             process.env.VERCEL_URL ||
-            process.env.VERCEL_PROJECT_PRODUCTION_URL ||
             process.env.CLIENT_URL
 
           if (!deploymentUrl) {
