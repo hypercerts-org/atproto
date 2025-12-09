@@ -54,25 +54,20 @@ const isLocalDevPds =
 
 export const OAUTH_SCOPE: string =
   searchParams.get('scope') ??
-  (ENV === 'development'
-    ? [
-        'atproto',
-        'account:email',
-        'identity:*',
-        'repo:*',
-        // Only include moderation permissions lexicon if using local dev PDS
-        ...(isLocalDevPds
-          ? ['include:com.atproto.moderation.basePermissions']
-          : []),
-      ].join(' ')
-    : [
-        'atproto',
-        'account:email',
-        'account:status',
-        'blob:*/*',
-        'repo:*',
-        'rpc:*?aud=did:web:bsky.app#bsky_appview',
-      ].join(' '))
+  [
+    // Basic atproto scope - required for all AT Protocol operations
+    'atproto',
+    // Read account email address - used to display user email in UI
+    'account:email',
+    // Repository operations - needed for creating records in shared repositories
+    // via com.atproto.repo.createRecord and reading records via com.atproto.repo.getRecord
+    'repo:*',
+    // Only include moderation permissions lexicon if using local dev PDS
+    // (this lexicon is only registered in dev-env lexicon authority)
+    ...(isLocalDevPds
+      ? ['include:com.atproto.moderation.basePermissions']
+      : []),
+  ].join(' ')
 
 // Debug logging for configuration
 console.log('[SDS Demo Config]', {
