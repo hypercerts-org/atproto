@@ -1,5 +1,7 @@
 /* eslint-env node */
 
+require('dotenv').config()
+
 const { default: commonjs } = require('@rollup/plugin-commonjs')
 const { default: html, makeHtmlAttributes } = require('@rollup/plugin-html')
 const { default: json } = require('@rollup/plugin-json')

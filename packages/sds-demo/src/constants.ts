@@ -45,24 +45,29 @@ export const SDS_SERVER_URL: string =
 // Note: These scopes are issued by PDS but NOT validated by SDS during authorization.
 // SDS uses federated JWT validation (fetches JWKS from PDS) to verify token authenticity,
 // then authorizes access solely based on SDS database permissions.
+// Note: include:com.atproto.moderation.basePermissions is only available in local dev environment
+// (localhost:2583) where the lexicon is registered via dev-env service profile.
+// External PDS instances don't have this lexicon, so we only include it for localhost.
+const isLocalDevPds =
+  ENV === 'development' &&
+  (SIGN_UP_URL.includes('localhost') || SIGN_UP_URL.includes('127.0.0.1'))
+
 export const OAUTH_SCOPE: string =
   searchParams.get('scope') ??
-  (ENV === 'development'
-    ? [
-        'atproto',
-        'account:email',
-        'identity:*',
-        'repo:*',
-        'include:com.atproto.moderation.basePermissions',
-      ].join(' ')
-    : [
-        'atproto',
-        'account:email',
-        'account:status',
-        'blob:*/*',
-        'repo:*',
-        'rpc:*?aud=did:web:bsky.app#bsky_appview',
-      ].join(' '))
+  [
+    // Basic atproto scope - required for all AT Protocol operations
+    'atproto',
+    // Read account email address - used to display user email in UI
+    'account:email',
+    // Repository operations - needed for creating records in shared repositories
+    // via com.atproto.repo.createRecord and reading records via com.atproto.repo.getRecord
+    'repo:*',
+    // Only include moderation permissions lexicon if using local dev PDS
+    // (this lexicon is only registered in dev-env lexicon authority)
+    ...(isLocalDevPds
+      ? ['include:com.atproto.moderation.basePermissions']
+      : []),
+  ].join(' ')
 
 // Debug logging for configuration
 console.log('[SDS Demo Config]', {

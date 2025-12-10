@@ -2,6 +2,45 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '../auth/auth-provider.tsx'
 import { RepositoryPermissions } from '../services/collaboration-service.ts'
 
+// Check if a handle is available (not taken)
+export function useCheckHandleAvailabilityQuery(
+  handle: string | null,
+  enabled: boolean,
+) {
+  const auth = useAuthContext()
+
+  return useQuery({
+    queryKey: ['sds', 'handle-availability', handle],
+    queryFn: async (): Promise<boolean> => {
+      if (!handle || !auth.signedIn || !auth.agent) {
+        throw new Error('Handle or agent not available')
+      }
+
+      try {
+        // Try to resolve the handle - if it succeeds, handle is taken
+        await auth.agent.call('com.atproto.identity.resolveHandle', {
+          handle,
+        })
+        // If resolveHandle succeeds, handle is taken
+        return false
+      } catch (error: any) {
+        // If resolveHandle fails with "Unable to resolve handle", handle is available
+        if (
+          error?.message?.includes('Unable to resolve handle') ||
+          error?.status === 400
+        ) {
+          return true
+        }
+        // Re-throw other errors
+        throw error
+      }
+    },
+    enabled: enabled && !!handle && auth.signedIn && !!auth.agent,
+    retry: false, // Don't retry availability checks
+    staleTime: 30 * 1000, // Consider availability fresh for 30 seconds
+  })
+}
+
 export interface SdsCollaborator {
   userDid: string
   handle?: string

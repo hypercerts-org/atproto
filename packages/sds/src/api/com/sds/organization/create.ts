@@ -1,5 +1,6 @@
 import * as plc from '@did-plc/lib'
 import { Secp256k1Keypair } from '@atproto/crypto'
+import { InvalidHandleError, ensureValidHandle } from '@atproto/syntax'
 import { InvalidRequestError, XRPCError } from '@atproto/xrpc-server'
 import { AccountStatus } from '../../../../account-manager/helpers/account'
 import { Server } from '../../../../lexicon'
@@ -22,7 +23,7 @@ export default function (server: Server, ctx: SdsAppContext) {
       },
     ],
     handler: async ({ input, auth: _auth }) => {
-      const { name, description, handle, creatorDid } = input.body
+      const { name, description, handlePrefix, creatorDid } = input.body
 
       if (!creatorDid) {
         throw new InvalidRequestError('Creator DID is required')
@@ -41,10 +42,36 @@ export default function (server: Server, ctx: SdsAppContext) {
         throw new InvalidRequestError('Organization name is required')
       }
 
-      // Generate a unique handle if not provided
-      const orgHandle =
-        handle ||
-        `${name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+      if (!handlePrefix?.trim()) {
+        throw new InvalidRequestError('Handle prefix is required')
+      }
+
+      // Extract hostname from SDS public URL and construct full handle
+      // Use hostname (not host) to exclude port number, as handles cannot contain ports
+      const sdsPublicUrl = ctx.cfg.service.publicUrl
+      const sdsHostname = new URL(sdsPublicUrl).hostname
+      const orgHandle = `${handlePrefix.trim()}.${sdsHostname}`
+
+      // Validate handle format using @atproto/syntax
+      try {
+        ensureValidHandle(orgHandle)
+      } catch (err) {
+        if (err instanceof InvalidHandleError) {
+          throw new InvalidRequestError(err.message, 'InvalidHandle')
+        }
+        throw err
+      }
+
+      // Check if handle already exists
+      const existingAccount = await ctx.accountManager.getAccount(orgHandle, {
+        includeDeactivated: true,
+      })
+      if (existingAccount) {
+        throw new InvalidRequestError(
+          `Handle already taken: ${orgHandle}`,
+          'HandleTaken',
+        )
+      }
 
       try {
         // Create a new DID and signing key for the organization

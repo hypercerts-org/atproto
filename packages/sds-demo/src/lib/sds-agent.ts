@@ -18,7 +18,7 @@ const sdsLexicons: LexiconDoc[] = [
           encoding: 'application/json',
           schema: {
             type: 'object',
-            required: ['name', 'creatorDid'],
+            required: ['name', 'handlePrefix', 'creatorDid'],
             properties: {
               name: {
                 type: 'string',
@@ -30,11 +30,11 @@ const sdsLexicons: LexiconDoc[] = [
                 maxLength: 500,
                 description: 'Optional description of the organization.',
               },
-              handle: {
+              handlePrefix: {
                 type: 'string',
-                format: 'handle',
+                maxLength: 50,
                 description:
-                  'Optional custom handle for the organization. If not provided, will be auto-generated.',
+                  'The handle prefix (part before the first dot). The SDS hostname will be automatically appended as the suffix.',
               },
               creatorDid: {
                 type: 'string',
