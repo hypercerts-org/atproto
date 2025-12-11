@@ -7,7 +7,7 @@ import { AtpAgent } from '@atproto/api'
 import { Secp256k1Keypair, randomStr } from '@atproto/crypto'
 import * as pds from '@atproto/pds'
 import { createSecretKeyObject } from '@atproto/pds'
-import { SDS, SdsAppContext } from '@atproto/sds'
+import { SDS, SdsAppContext, schemas } from '@atproto/sds'
 import { ADMIN_PASSWORD, EXAMPLE_LABELER, JWT_SECRET } from './const'
 import { SdsConfig } from './types'
 
@@ -82,6 +82,22 @@ export class TestSds {
   getClient(): AtpAgent {
     const agent = new AtpAgent({ service: this.url })
     agent.configureLabelers([EXAMPLE_LABELER])
+    // Add SDS-specific lexicons to the agent
+    if (!schemas || schemas.length === 0) {
+      throw new Error('schemas is not available or empty')
+    }
+    const sdsLexicons = schemas.filter((schema) =>
+      schema.id?.startsWith('com.sds.'),
+    )
+    if (sdsLexicons.length === 0) {
+      console.warn(
+        'No SDS lexicons found in schemas. Total schemas:',
+        schemas.length,
+      )
+    }
+    for (const lexicon of sdsLexicons) {
+      agent.lex.add(lexicon)
+    }
     return agent
   }
 
