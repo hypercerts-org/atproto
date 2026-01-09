@@ -44,6 +44,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 **Problem Resolved**: The demo application was making direct HTTP fetch calls instead of using AT Protocol lexicons properly.
 
 **Solutions Implemented**:
+
 - ✅ **Fixed SDS Agent**: Updated `lib/sds-agent.ts` with correct lexicon definitions matching server-side specifications
 - ✅ **Fixed Organization Creation**: Replaced direct fetch with `agent.call('com.sds.organization.create', ...)`
 - ✅ **Fixed Organization Listing**: Replaced direct fetch with `agent.call('com.sds.organization.list', ...)`
@@ -54,17 +55,20 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 **Key Changes Made**:
 
 1. **Lexicon Definitions Updated** in `packages/sds-demo/src/lib/sds-agent.ts`:
+
    - Added missing `com.sds.organization.list` lexicon
    - Updated `com.sds.organization.create` to match server requirements (added `creatorDid`)
    - Fixed lexicon types to use proper references
    - Implemented smart routing with direct HTTP calls to SDS server
 
 2. **Repository Dashboard Fixed** in `packages/sds-demo/src/components/repository-dashboard.tsx`:
+
    - Replaced `fetch()` call with `auth.agent.call('com.sds.organization.create', ...)`
    - Proper error handling through AT Protocol error system
    - Better type safety and validation
 
 3. **Query Hooks Fixed** in `packages/sds-demo/src/queries/use-sds-queries.ts`:
+
    - Replaced `fetch()` call with `auth.agent.call('com.sds.organization.list', ...)`
    - Improved error handling and fallback behavior
    - Better integration with React Query caching
@@ -75,6 +79,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
    - Smart routing between servers based on method namespaces
 
 ### Testing Results ✅
+
 - ✅ **Organization Creation**: Working end-to-end via lexicon calls
 - ✅ **Organization Listing**: Working end-to-end via lexicon calls
 - ✅ **Build Process**: All packages compile successfully using Makefile
@@ -84,6 +89,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 ## What's Currently Working ✅
 
 ### Core SDS Server Infrastructure - **PRODUCTION READY**
+
 - ✅ **SDS Class**: Extends PDS with full shared repository functionality (`packages/sds/src/index.ts`)
 - ✅ **Permission Manager**: Complete RBAC system with audit logging (`packages/sds/src/permission-manager/index.ts`)
 - ✅ **Enhanced Authentication**: SDS auth verifier with cross-repository permission checks (`packages/sds/src/sds-auth-verifier.ts`)
@@ -91,6 +97,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 - ✅ **API Endpoints**: All SDS-specific endpoints working (`packages/sds/src/api/com/sds/`)
 
 ### Demo Application - **PRODUCTION READY** ✅
+
 - ✅ **OAuth Authentication**: Working with both PDS and SDS servers
 - ✅ **Organization Creation**: Create shared repositories through proper lexicon calls - **TESTED**
 - ✅ **Organization Listing**: List user's organizations with proper permissions - **TESTED**
@@ -100,6 +107,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 - ✅ **Error Handling**: Robust error handling and fallback behavior
 
 ### API Endpoints - **ALL WORKING**
+
 - ✅ `com.sds.organization.create` - Create organizations with proper repository DIDs
 - ✅ `com.sds.organization.list` - List organizations user has access to
 - ✅ `com.sds.repo.grantAccess` - Grant repository permissions to users
@@ -114,6 +122,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 **Goal**: Implement repository sharing functionality using direct HTTP calls to establish core collaboration features.
 
 #### **1.1 Collaboration Service Layer** - ✅ **COMPLETED**
+
 - ✅ **File Created**: `packages/sds-demo/src/services/collaboration-service.ts`
 - ✅ **Direct HTTP Methods**: `grantRepositoryAccess()`, `revokeRepositoryAccess()`, `listRepositoryCollaborators()`, `getRepositoryPermissions()`
 - ✅ **Type Definitions**: Comprehensive TypeScript interfaces for all collaboration operations
@@ -121,12 +130,14 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 - ✅ **Utility Functions**: DID validation, name formatting, permission level display
 
 #### **1.2 React Query Integration** - ✅ **COMPLETED**
+
 - ✅ **File Created**: `packages/sds-demo/src/queries/use-collaboration-queries.ts`
 - ✅ **Hooks**: `useGrantAccessMutation()`, `useRevokeAccessMutation()`, `useListCollaboratorsQuery()`, `useCanManageRepository()`
 - ✅ **Cache Management**: Optimistic updates for grants, pessimistic updates for revokes
 - ✅ **Integration**: Comprehensive error handling, loading states, and query key factory pattern
 
 #### **1.3 UI Components** - ✅ **COMPLETED**
+
 - ✅ **Collaboration Modal**: Full-featured dialog with tabbed interface for repository sharing management (`packages/sds-demo/src/components/collaboration-modal.tsx`)
 - ✅ **Grant Access Form**: DID validation, permission selection checkboxes, form validation
 - ✅ **Collaborator List**: Display current collaborators with permissions, grant dates, and revoke actions
@@ -134,12 +145,14 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 - ✅ **Repository Cards**: Enhanced cards with collaboration features and management buttons (`packages/sds-demo/src/components/repository-card.tsx`)
 
 #### **1.4 Repository Dashboard Integration** - ✅ **COMPLETED**
+
 - ✅ **Enhanced Repository Cards**: "Manage" button for owned repositories, permission displays
 - ✅ **Collaborator Count**: Real-time display of collaborator count via API integration
 - ✅ **Repository Context**: Enhanced context with `updateCollaborators()` and `refreshRepository()` methods
 - ✅ **Modal Integration**: Seamless modal state management for collaboration workflows
 
 #### **1.5 Repository Context Updates** - ✅ **COMPLETED**
+
 - ✅ **Enhanced Repository Interface**: Added `collaboratorCount`, `isOwner`, `createdAt`, `description` fields
 - ✅ **Context Methods**: `updateCollaborators()` and `refreshRepository()` for dynamic updates
 - ✅ **State Integration**: Seamless integration with collaboration features and real-time updates
@@ -147,6 +160,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 ### **Phase 1 Status: PRODUCTION READY** ✅
 
 **Summary**: Repository collaboration is fully functional with direct HTTP calls to SDS endpoints. Users can:
+
 - Create shared repositories
 - Grant read/write permissions to other users via DID
 - View and manage collaborators with full UI
@@ -157,12 +171,14 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 **Integration**: ✅ Fully integrated with existing demo app infrastructure
 
 #### **1.6 End-to-End Testing** - ✅ **COMPLETED**
+
 - ✅ **Build Verification**: All packages build successfully without errors
 - ✅ **Component Integration**: Repository cards, collaboration modal, and permission badges work together
 - ✅ **State Management**: Repository context properly manages collaboration data
 - ✅ **API Integration**: React Query hooks successfully communicate with SDS collaboration endpoints
 
 ### **Phase 1 Success Criteria** ✅ **ALL MET**
+
 - ✅ Repository owners can grant read/write access to other users via DID
 - ✅ Collaborators appear in repository dashboard with correct permissions
 - ✅ Users can revoke access from collaborators
@@ -170,14 +186,17 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 - ✅ All collaboration features work with direct HTTP calls
 
 ### **Phase 2: JWT Claims & OAuth Integration** - 🔮 **FUTURE**
+
 **Goal**: Migrate to production-ready authentication with proper JWT claims validation.
 
 #### **2.1 Authentication Architecture** - 🔮 **FUTURE**
+
 - 🔮 **JWT Token Handling**: SdsAgent enhanced to handle JWT authentication
 - 🔮 **Cross-Server Validation**: SDS validates JWT tokens issued by PDS
 - 🔮 **Claims Mapping**: Map PDS identity to SDS repository permissions
 
 #### **2.2 Migration to Authenticated Lexicon Calls** - 🔮 **FUTURE**
+
 - 🔮 **Replace HTTP Calls**: Update collaboration service to use `agent.call()` with authentication
 - 🔮 **Token Refresh**: Automatic token refresh logic for long-running sessions
 - 🔮 **Error Handling**: Proper authentication error handling and user feedback
@@ -185,6 +204,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 ## Remaining Work (5% of total)
 
 ### Current Sprint (Phase 1)
+
 1. **✅ Collaboration Service**: Direct HTTP calls to SDS endpoints - **COMPLETED**
 2. **🚧 React Query Hooks**: Collaboration query and mutation hooks - **IN PROGRESS**
 3. **📋 UI Components**: Collaboration forms and collaborator management
@@ -192,6 +212,7 @@ Create a `@atproto/sds` package that enables shared data repositories between mu
 5. **📋 Testing**: End-to-end collaboration functionality testing
 
 ### Future Work
+
 1. **Phase 2 Migration**: JWT authentication and lexicon-based calls
 2. **Content Creation**: Enable creating posts/records in shared repositories
 3. **Advanced Permissions**: Role-based access beyond read/write
