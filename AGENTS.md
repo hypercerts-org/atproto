@@ -4,7 +4,9 @@ This file provides guidance to AI agents when working with code in this reposito
 
 ## Overview
 
-This is Bluesky's reference implementation of AT Protocol (atproto) - a decentralized social media protocol. The codebase is a pnpm monorepo containing TypeScript packages for both protocol libraries and application services.
+This is the Hypercerts fork of Bluesky's reference implementation of AT Protocol (atproto) - a decentralized social media protocol. The codebase is a pnpm monorepo containing TypeScript packages for both protocol libraries and application services.
+
+Details of the differences of this fork are given below. Also, the `.ai/` directory contains specifications, implementation plans, and other resources specifically created for AI-assisted work on this repository.
 
 ## Common Commands
 
@@ -97,3 +99,59 @@ To limit the maximum number of test workers (useful for resource-constrained env
 - SQLite option for PDS (development/small deployments)
 - Kysely for query building
 - Migrations in `packages/<service>/src/db/migrations/`
+
+## Hypercerts Fork Differences
+
+This is a hypercerts fork of the upstream Bluesky AT Protocol implementation that adds **Shared Data Server (SDS)** functionality for collaborative repositories. The fork maintains full compatibility with the upstream AT Protocol while extending it with multi-user data sharing capabilities.
+
+### Key Differences from Upstream
+
+**New Packages:**
+
+- **`packages/sds/`** - Shared Data Server implementation extending PDS with collaborative features
+- **`packages/sds-demo/`** - Web-based demo application showcasing SDS functionality
+
+**Core SDS Features:**
+
+- **Multi-user shared repositories** - Enable multiple users to collaborate on data repositories
+- **Role-based access control (RBAC)** - Granular permissions (read/write/admin) for repository access
+- **Permission management system** - Grant/revoke access, list collaborators, audit logs
+- **Organization support** - Create dedicated repositories for organizations with shared ownership
+
+**Architecture Approach:**
+
+- **Copy-and-modify strategy** - SDS is a complete copy of PDS with internal modifications rather than inheritance
+- **Full PDS compatibility** - SDS maintains 100% API compatibility for seamless federation with existing PDS instances
+- **Enhanced authentication** - Extended auth verifier with shared repository permission checks
+- **Database extensions** - Additional tables for sharing permissions and audit logging
+
+**SDS-Specific API Endpoints:**
+
+- `com.sds.organization.*` - Organization creation and management
+- `com.sds.repo.*` - Repository sharing and permission management (grantAccess, revokeAccess, listCollaborators, getPermissions)
+
+**Authentication Extensions:**
+
+- **DPoP token validation** - SDS endpoints require DPoP (Demonstrated Proof of Possession) tokens for security
+- **Cross-repository access** - Users can access repositories they have permissions for, not just their own
+- **Federated token validation** - Support for validating tokens issued by different PDS instances
+
+**Demo Application:**
+
+- **OAuth integration** - Full OAuth flow with both PDS and SDS servers
+- **Repository dashboard** - Visual interface for managing owned and shared repositories
+- **Collaboration tools** - Grant/revoke permissions, view collaborators, create shared content
+- **Multi-server agent** - Smart routing between PDS and SDS servers based on lexicon namespaces
+
+**Implementation Status:**
+
+- **Production ready** - SDS server and demo app are fully functional
+- **Federation compatible** - Can federate with upstream PDS instances
+- **Well-documented** - Comprehensive implementation plans in `.ai/SDS-implementation-plan.md` and `.ai/SDS-authentication.md`
+
+For detailed implementation details, see:
+
+- `.ai/SDS-implementation-plan.md` - Complete SDS development roadmap and architecture decisions
+- `.ai/SDS-authentication.md` - SDS authentication flow and security model
+- `packages/sds/` - SDS server source code
+- `packages/sds-demo/` - Demo application source code
