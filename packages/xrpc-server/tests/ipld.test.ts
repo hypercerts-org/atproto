@@ -73,6 +73,7 @@ describe('Ipld vals', () => {
   })
   afterAll(async () => {
     await closeServer(s)
+    await new Promise((r) => setTimeout(r, 500))
   })
 
   it('can send and receive ipld vals', async () => {
@@ -87,7 +88,7 @@ describe('Ipld vals', () => {
         cid,
         bytes,
       },
-      { encoding: 'application/json' },
+      { encoding: 'application/json', headers: { connection: 'close' } },
     )
     expect(res.success).toBeTruthy()
     expect(res.headers['content-type']).toBe('application/json; charset=utf-8')

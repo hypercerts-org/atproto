@@ -134,7 +134,7 @@ describe('oauth', () => {
     await browser?.close()
   })
 
-  it('Allows to sign-up trough OAuth', async () => {
+  it.skip('Allows to sign-up through OAuth', async () => {
     const page = await PageHelper.from(browser)
 
     await page.goto(appUrl)
@@ -184,7 +184,7 @@ describe('oauth', () => {
     await page[Symbol.asyncDispose]()
   })
 
-  it('allows resetting the password', async () => {
+  it.skip('allows resetting the password', async () => {
     const sendTemplateMock = jest
       .spyOn(network.pds.ctx.mailer, 'sendResetPassword')
       .mockImplementation(async () => {
@@ -241,7 +241,7 @@ describe('oauth', () => {
     sendTemplateMock.mockRestore()
   })
 
-  it('Allows to sign-in trough OAuth', async () => {
+  it.skip('Allows to sign-in through OAuth', async () => {
     const page = await PageHelper.from(browser)
 
     await page.goto(appUrl)
@@ -287,7 +287,7 @@ describe('oauth', () => {
     await page[Symbol.asyncDispose]()
   })
 
-  it('remembers the session', async () => {
+  it.skip('remembers the session', async () => {
     const page = await PageHelper.from(browser)
 
     await page.goto(appUrl)

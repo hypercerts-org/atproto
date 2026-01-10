@@ -4,7 +4,10 @@ import AtpAgent from '@atproto/api'
 import { renameIfExists, rmIfExists } from '@atproto/common'
 import { SeedClient, TestNetworkNoAppView, basicSeed } from '@atproto/dev-env'
 import { verifyRepoCar } from '@atproto/repo'
-import { AppContext, scripts } from '../dist'
+import type { AppContext } from '../../pds/dist/context'
+import { scripts } from '../dist'
+import type { RotateKeysContext } from '../dist/scripts/rotate-keys'
+import type { RecovererContextNoDb } from '../dist/scripts/sequencer-recovery/recoverer'
 
 describe('recovery', () => {
   let network: TestNetworkNoAppView
@@ -135,7 +138,10 @@ describe('recovery', () => {
     await restore([alice, bob, elli])
 
     // run recovery operation
-    await scripts['sequencer-recovery'](network.pds.ctx, ['0', '10', 'true'])
+    await scripts['sequencer-recovery'](
+      network.pds.ctx as unknown as RecovererContextNoDb,
+      ['0', '10', 'true'],
+    )
 
     // ensure alice's CAR is exactly the same as before the loss, including intermediate states based on tracked revs
     const startCarAfter = await getCar(alice, startRev)
@@ -165,7 +171,10 @@ describe('recovery', () => {
   })
 
   it('rotates keys for users', async () => {
-    await scripts['rotate-keys'](network.pds.ctx, [elli])
+    await scripts['rotate-keys'](
+      network.pds.ctx as unknown as RotateKeysContext,
+      [elli],
+    )
     const elliKey = await ctx.actorStore.keypair(elli)
 
     const plcData = await ctx.plcClient.getDocumentData(elli)

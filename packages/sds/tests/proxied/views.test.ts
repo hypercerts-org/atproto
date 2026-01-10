@@ -15,7 +15,7 @@ describe('proxies view requests', () => {
 
   beforeAll(async () => {
     network = await TestNetwork.create({
-      dbPostgresSchema: 'proxy_views',
+      dbPostgresSchema: 'proxy_views_sds',
     })
     agent = network.pds.getClient()
     sc = network.getSeedClient()

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(podman build:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm verify:*)",
+      "Bash(pstree:*)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel inspect:*)",
+      "Bash(vercel project:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

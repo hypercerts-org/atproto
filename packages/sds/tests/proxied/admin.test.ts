@@ -12,7 +12,7 @@ describe('proxies admin requests', () => {
 
   beforeAll(async () => {
     network = await TestNetwork.create({
-      dbPostgresSchema: 'proxy_admin',
+      dbPostgresSchema: 'proxy_admin_sds',
       pds: {
         inviteRequired: true,
       },

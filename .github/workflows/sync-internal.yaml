@@ -7,7 +7,7 @@ on:
 jobs:
   sync:
     if: github.repository == 'bluesky-social/atproto'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout public repo
         uses: actions/checkout@v4

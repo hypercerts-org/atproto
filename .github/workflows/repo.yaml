@@ -12,14 +12,14 @@ concurrency:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       # https://github.com/actions/setup-node/issues/531#issuecomment-2960522861
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
+          node-version-file: '.nvmrc'
       - name: Enable Corepack
         run: corepack enable
       - name: Configure Dependency Cache
@@ -49,14 +49,14 @@ jobs:
     strategy:
       matrix:
         shard: [1/8, 2/8, 3/8, 4/8, 5/8, 6/8, 7/8, 8/8]
-    runs-on: ubuntu-22.04
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       # https://github.com/actions/setup-node/issues/531#issuecomment-2960522861
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
+          node-version-file: '.nvmrc'
       - name: Enable Corepack
         run: corepack enable
       - name: Configure Dependency Cache
@@ -70,23 +70,23 @@ jobs:
         with:
           path: ~/.cache
           key: ${{ env.CURRENT_MONTH }}-${{ runner.os }}
-      - run: pnpm i --frozen-lockfile
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: packages
+      - run: pnpm i --frozen-lockfile
       - run: pnpm test:withFlags --maxWorkers=1 --shard=${{ matrix.shard }} --passWithNoTests
   verify:
     name: Verify
     needs: build
-    runs-on: ubuntu-22.04
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       # https://github.com/actions/setup-node/issues/531#issuecomment-2960522861
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
+          node-version-file: '.nvmrc'
       - name: Enable Corepack
         run: corepack enable
       - name: Configure Dependency Cache
@@ -100,9 +100,9 @@ jobs:
         with:
           path: ~/.cache
           key: ${{ env.CURRENT_MONTH }}-${{ runner.os }}
-      - run: pnpm i --frozen-lockfile
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: packages
+      - run: pnpm i --frozen-lockfile
       - run: pnpm verify

@@ -20,6 +20,11 @@ export class SdsPermissionManager {
     action: keyof RepositoryPermissions,
   ): Promise<boolean> {
     try {
+      // Owners always have full access to their own repository
+      if (repoDid === userDid) {
+        return true
+      }
+
       const permissions = await this.getPermissions(repoDid, userDid)
       if (!permissions) return false
 
@@ -167,6 +172,16 @@ export class SdsPermissionManager {
     permissions: RepositoryPermissions,
     grantedBy: string,
   ): Promise<void> {
+    // Prevent granting access to repository owner (they already have implicit access)
+    if (repoDid === userDid) {
+      throw new SdsPermissionError(
+        `Cannot grant access to repository owner ${userDid} for repository ${repoDid}`,
+        repoDid,
+        userDid,
+        'grant',
+      )
+    }
+
     const permissionsJson = JSON.stringify(permissions)
     const now = new Date().toISOString()
 
@@ -345,7 +360,7 @@ export class SdsPermissionManager {
         .selectFrom('permission_audit_log')
         .selectAll()
         .where('repoDid', '=', repoDid)
-        .orderBy('changedAt', 'desc')
+        .orderBy('id', 'desc')
         .limit(limit)
         .execute()
 

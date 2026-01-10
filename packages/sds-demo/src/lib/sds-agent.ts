@@ -1,6 +1,7 @@
 import { Agent } from '@atproto/api'
 import { LexiconDoc } from '@atproto/lexicon'
 import { OAuthSession, dpopFetchWrapper } from '@atproto/oauth-client'
+// eslint-disable-next-line import/no-unresolved
 import { Fetch } from '@atproto-labs/fetch'
 import { ENV, SDS_SERVER_URL } from '../constants.ts'
 

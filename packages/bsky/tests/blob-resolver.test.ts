@@ -1,5 +1,5 @@
 import { CID } from 'multiformats/cid'
-import { request } from 'undici'
+import { fetch } from 'undici'
 import { cidForCbor, verifyCidForBytes } from '@atproto/common'
 import { randomBytes } from '@atproto/crypto'
 import { TestNetwork, basicSeed } from '@atproto/dev-env'
@@ -27,27 +27,29 @@ describe('blob resolver', () => {
   })
 
   it('resolves blob with good signature check.', async () => {
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/${fileDid}/${fileCid.toString()}`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(200)
-    expect(response.headers['content-type']).toEqual('image/jpeg')
-    expect(response.headers['content-security-policy']).toEqual(
+    expect(response.status).toEqual(200)
+    expect(response.headers.get('content-type')).toEqual('image/jpeg')
+    expect(response.headers.get('content-security-policy')).toEqual(
       `default-src 'none'; sandbox`,
     )
-    expect(response.headers['x-content-type-options']).toEqual('nosniff')
+    expect(response.headers.get('x-content-type-options')).toEqual('nosniff')
 
-    const bytes = new Uint8Array(await response.body.arrayBuffer())
+    const bytes = new Uint8Array(await response.arrayBuffer())
     await expect(verifyCidForBytes(fileCid, bytes)).resolves.toBeUndefined()
   })
 
   it('404s on missing blob.', async () => {
     const badCid = await cidForCbor({ unknown: true })
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/${fileDid}/${badCid.toString()}`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(404)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(404)
+    await expect(response.json()).resolves.toEqual({
       error: 'NotFoundError',
       message: 'Blob not found',
     })
@@ -56,36 +58,39 @@ describe('blob resolver', () => {
   it('404s on missing identity.', async () => {
     const nonExistingDid = `did:plc:${'a'.repeat(24)}`
 
-    const response = await request(
+    const response = await fetch(
       new URL(
         `/blob/${nonExistingDid}/${fileCid.toString()}`,
         network.bsky.url,
       ),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(404)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(404)
+    await expect(response.json()).resolves.toEqual({
       error: 'NotFoundError',
       message: 'Origin not found',
     })
   })
 
   it('400s on invalid did.', async () => {
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/did::/${fileCid.toString()}`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(400)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(400)
+    await expect(response.json()).resolves.toEqual({
       error: 'BadRequestError',
       message: 'Invalid did',
     })
   })
 
   it('400s on invalid cid.', async () => {
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/${fileDid}/barfy`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(400)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(400)
+    await expect(response.json()).resolves.toEqual({
       error: 'BadRequestError',
       message: 'Invalid cid',
     })
@@ -94,11 +99,12 @@ describe('blob resolver', () => {
   it('400s on missing file.', async () => {
     const missingCid = await cidForCbor('missing-file')
 
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/${fileDid}/${missingCid}`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
-    expect(response.statusCode).toEqual(404)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(404)
+    await expect(response.json()).resolves.toEqual({
       error: 'NotFoundError',
       message: 'Blob not found',
     })
@@ -112,12 +118,13 @@ describe('blob resolver', () => {
   })
 
   it('fails to fetch bytes on blob with bad signature check.', async () => {
-    const response = await request(
+    const response = await fetch(
       new URL(`/blob/${fileDid}/${fileCid.toString()}`, network.bsky.url),
+      { headers: { connection: 'close' } },
     )
 
-    expect(response.statusCode).toEqual(404)
-    await expect(response.body.json()).resolves.toEqual({
+    expect(response.status).toEqual(404)
+    await expect(response.json()).resolves.toEqual({
       error: 'NotFoundError',
       message: 'Bad cid check',
     })

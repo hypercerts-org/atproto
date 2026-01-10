@@ -40,14 +40,26 @@ describe('SdsPermissionManager', () => {
         testOwnerDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testOwnerDid,
         testOwnerDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testOwnerDid,
+        testOwnerDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(true)
+      expect(hasCreateAccess).toBe(true)
+      expect(hasUpdateAccess).toBe(true)
+      expect(hasDeleteAccess).toBe(true)
     })
 
     test('should deny access to users without permissions', async () => {
@@ -56,18 +68,35 @@ describe('SdsPermissionManager', () => {
         testUserDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(false)
-      expect(hasWriteAccess).toBe(false)
+      expect(hasCreateAccess).toBe(false)
+      expect(hasUpdateAccess).toBe(false)
+      expect(hasDeleteAccess).toBe(false)
     })
 
     test('should grant access based on permissions', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: false }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: false,
+        update: false,
+        delete: false,
+      }
 
       await permissionManager.grantAccess(
         testRepoDid,
@@ -81,20 +110,37 @@ describe('SdsPermissionManager', () => {
         testUserDid,
         'read',
       )
-      const hasWriteAccess = await permissionManager.checkAccess(
+      const hasCreateAccess = await permissionManager.checkAccess(
         testRepoDid,
         testUserDid,
-        'write',
+        'create',
+      )
+      const hasUpdateAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'update',
+      )
+      const hasDeleteAccess = await permissionManager.checkAccess(
+        testRepoDid,
+        testUserDid,
+        'delete',
       )
 
       expect(hasReadAccess).toBe(true)
-      expect(hasWriteAccess).toBe(false)
+      expect(hasCreateAccess).toBe(false)
+      expect(hasUpdateAccess).toBe(false)
+      expect(hasDeleteAccess).toBe(false)
     })
   })
 
   describe('grantAccess', () => {
     test('should grant permissions to a user', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
 
       await permissionManager.grantAccess(
         testRepoDid,
@@ -115,7 +161,9 @@ describe('SdsPermissionManager', () => {
       // Grant initial permissions
       const initialPermissions: RepositoryPermissions = {
         read: true,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
       }
       await permissionManager.grantAccess(
         testRepoDid,
@@ -127,7 +175,9 @@ describe('SdsPermissionManager', () => {
       // Update permissions
       const updatedPermissions: RepositoryPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
       }
       await permissionManager.grantAccess(
         testRepoDid,
@@ -145,7 +195,12 @@ describe('SdsPermissionManager', () => {
     })
 
     test('should create audit log entry', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
 
       await permissionManager.grantAccess(
         testRepoDid,
@@ -170,7 +225,12 @@ describe('SdsPermissionManager', () => {
   describe('revokeAccess', () => {
     test('should revoke user permissions', async () => {
       // First grant permissions
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -202,7 +262,12 @@ describe('SdsPermissionManager', () => {
 
     test('should create audit log entry for revocation', async () => {
       // Grant then revoke permissions
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -230,11 +295,15 @@ describe('SdsPermissionManager', () => {
     test('should list all collaborators for a repository', async () => {
       const user1Permissions: RepositoryPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
       }
       const user2Permissions: RepositoryPermissions = {
         read: true,
-        write: false,
+        create: false,
+        update: false,
+        delete: false,
       }
 
       await permissionManager.grantAccess(
@@ -272,7 +341,12 @@ describe('SdsPermissionManager', () => {
 
   describe('listUserRepositories', () => {
     test('should list all repositories a user has access to', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       const repo1 = 'did:plc:test-repo-1'
       const repo2 = 'did:plc:test-repo-2'
 
@@ -300,7 +374,12 @@ describe('SdsPermissionManager', () => {
 
   describe('hasCollaborators', () => {
     test('should return true when repository has collaborators', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
@@ -322,7 +401,12 @@ describe('SdsPermissionManager', () => {
 
   describe('removeAllPermissions', () => {
     test('should remove all permissions for a repository', async () => {
-      const permissions: RepositoryPermissions = { read: true, write: true }
+      const permissions: RepositoryPermissions = {
+        read: true,
+        create: true,
+        update: true,
+        delete: true,
+      }
 
       // Grant permissions to multiple users
       await permissionManager.grantAccess(
@@ -363,7 +447,13 @@ describe('SdsPermissionManager', () => {
         await permissionManager.grantAccess(
           testRepoDid,
           testUserDid,
-          { read: true, write: true, admin: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+            admin: true,
+          },
           testUserDid, // User trying to grant themselves access
         )
 
@@ -380,7 +470,13 @@ describe('SdsPermissionManager', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
-        { read: true, write: false, admin: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+          admin: false,
+        },
         testOwnerDid,
       )
 
@@ -389,7 +485,13 @@ describe('SdsPermissionManager', () => {
         await permissionManager.grantAccess(
           testRepoDid,
           testUserDid,
-          { read: true, write: true, admin: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+            admin: true,
+          },
           testUserDid, // User trying to escalate their own permissions
         )
 
@@ -405,7 +507,12 @@ describe('SdsPermissionManager', () => {
         await permissionManager.grantAccess(
           testRepoDid,
           'did:plc:another-user',
-          { read: true, write: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+          },
           testUserDid, // User trying to grant access to owner's repo
         )
 
@@ -418,7 +525,9 @@ describe('SdsPermissionManager', () => {
     test('should validate permission object structure', async () => {
       const invalidPermissions = {
         read: 'true', // Should be boolean
-        write: 1, // Should be boolean
+        create: 1, // Should be boolean
+        update: null, // Should be boolean
+        delete: null, // Should be boolean
         admin: null, // Should be boolean
       } as any
 
@@ -439,7 +548,9 @@ describe('SdsPermissionManager', () => {
     test('should prevent injection in permission data', async () => {
       const maliciousPermissions = {
         read: true,
-        write: true,
+        create: true,
+        update: true,
+        delete: true,
         admin: true,
         malicious: '"; DROP TABLE shared_repository_permissions; --',
       } as any
@@ -468,7 +579,12 @@ describe('SdsPermissionManager', () => {
         await permissionManager.grantAccess(
           testRepoDid,
           invalidDid,
-          { read: true, write: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+          },
           testOwnerDid,
         )
 
@@ -504,7 +620,14 @@ describe('SdsPermissionManager', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testOwnerDid,
-        { read: true, write: true, admin: true, owner: true },
+        {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+          admin: true,
+          owner: true,
+        },
         testOwnerDid, // Self-granted as the owner
       )
 
@@ -514,14 +637,26 @@ describe('SdsPermissionManager', () => {
         testOwnerDid,
         'read',
       )
-      const ownerHasWrite = await permissionManager.checkAccess(
+      const ownerHasCreate = await permissionManager.checkAccess(
         testRepoDid,
         testOwnerDid,
-        'write',
+        'create',
+      )
+      const ownerHasUpdate = await permissionManager.checkAccess(
+        testRepoDid,
+        testOwnerDid,
+        'update',
+      )
+      const ownerHasDelete = await permissionManager.checkAccess(
+        testRepoDid,
+        testOwnerDid,
+        'delete',
       )
 
       expect(ownerHasRead).toBe(true)
-      expect(ownerHasWrite).toBe(true)
+      expect(ownerHasCreate).toBe(true)
+      expect(ownerHasUpdate).toBe(true)
+      expect(ownerHasDelete).toBe(true)
     })
 
     test('should handle concurrent permission changes safely', async () => {
@@ -530,13 +665,23 @@ describe('SdsPermissionManager', () => {
         permissionManager.grantAccess(
           testRepoDid,
           testUserDid,
-          { read: true, write: false },
+          {
+            read: true,
+            create: false,
+            update: false,
+            delete: false,
+          },
           testOwnerDid,
         ),
         permissionManager.grantAccess(
           testRepoDid,
           testUserDid,
-          { read: true, write: true },
+          {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+          },
           testOwnerDid,
         ),
       ]
@@ -559,14 +704,24 @@ describe('SdsPermissionManager', () => {
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
-        { read: true, write: false },
+        {
+          read: true,
+          create: false,
+          update: false,
+          delete: false,
+        },
         testOwnerDid,
       )
 
       await permissionManager.grantAccess(
         testRepoDid,
         testUserDid,
-        { read: true, write: true },
+        {
+          read: true,
+          create: true,
+          update: true,
+          delete: true,
+        },
         testOwnerDid,
       )
 

@@ -324,10 +324,12 @@ export function CollaborationModal({
                                 handleRevokeAccess(collaborator.userDid)
                               }
                               size="small"
-                              disabled={revokeAccessMutation.isLoading}
+                              disabled={
+                                revokeAccessMutation.status === 'pending'
+                              }
                               className="ml-4 bg-red-600 text-white hover:bg-red-700"
                             >
-                              {revokeAccessMutation.isLoading &&
+                              {revokeAccessMutation.status === 'pending' &&
                               revokeAccessMutation.variables?.userDid ===
                                 collaborator.userDid ? (
                                 <Spinner className="h-4 w-4" />
@@ -410,7 +412,7 @@ export function CollaborationModal({
               <div className="flex justify-end space-x-3">
                 <Button
                   onClick={() => setActiveTab('collaborators')}
-                  disabled={grantAccessMutation.isLoading}
+                  disabled={grantAccessMutation.status === 'pending'}
                 >
                   Cancel
                 </Button>
@@ -419,11 +421,11 @@ export function CollaborationModal({
                   disabled={
                     !userDid.trim() ||
                     !validateDid(userDid.trim()) ||
-                    grantAccessMutation.isLoading
+                    grantAccessMutation.status === 'pending'
                   }
                   className="bg-blue-600 text-white hover:bg-blue-700"
                 >
-                  {grantAccessMutation.isLoading ? (
+                  {grantAccessMutation.status === 'pending' ? (
                     <>
                       <Spinner className="mr-2 h-4 w-4" />
                       Adding Collaborator...

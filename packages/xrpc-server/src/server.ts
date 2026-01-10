@@ -436,13 +436,15 @@ export class Server {
   }
 
   private enableStreamingOnListen(app: Application) {
+    if (this.subscriptions.size === 0) return
     const _listen = app.listen
-    app.listen = (...args) => {
+    const subscriptions = this.subscriptions
+    app.listen = function (...args) {
       // @ts-ignore the args spread
       const httpServer = _listen.call(app, ...args)
       httpServer.on('upgrade', (req, socket, head) => {
         const nsid = req.url ? extractUrlNsid(req.url) : undefined
-        const sub = nsid ? this.subscriptions.get(nsid) : undefined
+        const sub = nsid ? subscriptions.get(nsid) : undefined
         if (!sub) return socket.destroy()
         sub.wss.handleUpgrade(req, socket, head, (ws) =>
           sub.wss.emit('connection', ws, req),

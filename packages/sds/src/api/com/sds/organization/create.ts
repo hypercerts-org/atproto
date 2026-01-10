@@ -22,7 +22,7 @@ export default function (server: Server, ctx: SdsAppContext) {
         calcPoints: () => 10,
       },
     ],
-    handler: async ({ input, auth: _auth }) => {
+    handler: async ({ input }) => {
       const { name, description, handlePrefix, creatorDid } = input.body
 
       if (!creatorDid) {

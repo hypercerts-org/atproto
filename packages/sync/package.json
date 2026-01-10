@@ -22,7 +22,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
-    "test": "../dev-infra/with-test-redis-and-db.sh jest"
+    "test": "../dev-infra/with-test-redis-and-db.sh jest --detectOpenHandles"
   },
   "dependencies": {
     "@atproto/common": "workspace:^",

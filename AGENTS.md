@@ -33,6 +33,13 @@ cd packages/<package-name> && pnpm jest path/to/test.test.ts
 pnpm verify:types
 
 # Linting and formatting
+# The pnpm lint/style scripts are VERY SLOW (run on entire codebase).
+# To check/fix specific files, run eslint/prettier directly:
+pnpm exec eslint path/to/file.ts path/to/other.ts
+pnpm exec prettier --check path/to/file.ts
+pnpm exec prettier --write path/to/file.ts
+
+# Root-level commands (slow, run on entire codebase):
 pnpm lint          # Check for lint errors
 pnpm lint:fix      # Fix lint errors
 pnpm style         # Check formatting
@@ -45,6 +52,10 @@ pnpm codegen
 # Run local development environment with test accounts
 make run-dev-env
 ```
+
+## Performance Notes
+
+Note: The `pnpm build`, `pnpm verify:types`, and `pnpm test` commands can take a significant amount of time to complete. If the `slow-commands` skill is available, it should be used when running these commands to provide better progress tracking and timeout handling.
 
 ## Architecture
 

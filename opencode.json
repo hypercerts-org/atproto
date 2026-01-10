@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "podman build*": "allow",
+      "pnpm --version*": "allow",
+      "pnpm test*": "allow",
+      "pnpm verify*": "allow",
+      "pstree*": "allow",
+      "vercel logs*": "allow",
+      "vercel inspect*": "allow",
+      "vercel project*": "allow",
+      "*": "ask"
+    }
+  }
+}
