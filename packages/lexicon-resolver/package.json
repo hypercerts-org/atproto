@@ -9,7 +9,7 @@
     "lexicon"
   ],
   "scripts": {
-    "test": "jest",
+    "test": "jest --detectOpenHandles",
     "build": "tsc --build tsconfig.build.json",
     "codegen": "lex gen-api --yes ./src/client ../../lexicons/com/atproto/sync/getRecord.json"
   },
