@@ -3,13 +3,23 @@ import * as http from 'node:http'
 import express from 'express'
 import * as xrpc from '../src'
 import { AuthRequiredError } from '../src'
+import { extractUrlNsid } from '../src/util'
 
-export async function createServer({
-  router,
-}: xrpc.Server): Promise<http.Server> {
+export async function createServer(server: xrpc.Server): Promise<http.Server> {
   const app = express()
-  app.use(router)
-  const httpServer = app.listen(0)
+  app.use(server.router)
+  const httpServer = http.createServer(app)
+  if (server.subscriptions.size > 0) {
+    httpServer.on('upgrade', (req, socket, head) => {
+      const nsid = req.url ? extractUrlNsid(req.url) : undefined
+      const sub = nsid ? server.subscriptions.get(nsid) : undefined
+      if (!sub) return socket.destroy()
+      sub.wss.handleUpgrade(req, socket, head, (ws) =>
+        sub.wss.emit('connection', ws, req),
+      )
+    })
+  }
+  httpServer.listen(0)
   await once(httpServer, 'listening')
   return httpServer
 }

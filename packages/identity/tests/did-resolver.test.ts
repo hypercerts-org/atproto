@@ -36,6 +36,7 @@ describe('did resolver', () => {
 
   afterAll(async () => {
     await close()
+    await new Promise((r) => setTimeout(r, 500))
   })
 
   const handle = 'alice.test'
