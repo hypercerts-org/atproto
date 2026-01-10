@@ -1,6 +1,5 @@
 import assert from 'node:assert'
 import util from 'node:util'
-import { request } from 'undici'
 import { AtpAgent } from '@atproto/api'
 import { RecordRef, SeedClient, TestNetwork } from '@atproto/dev-env'
 import { isView as isExternalEmbedView } from '../../src/lexicon/types/app/bsky/embed/external'
@@ -321,14 +320,18 @@ describe('proxy read after write', () => {
   it('defaults to identity encoding', async () => {
     // Not using the "agent" because "fetch()" will add "accept-encoding: gzip,
     // deflate" if not "accept-encoding" header is provided
-    const res = await request(
+    const res = await fetch(
       new URL(`/xrpc/app.bsky.feed.getTimeline`, agent.dispatchUrl),
       {
-        headers: { ...sc.getHeaders(alice) },
+        headers: {
+          ...sc.getHeaders(alice),
+          'accept-encoding': 'identity',
+          connection: 'close',
+        },
       },
     )
-    expect(res.statusCode).toBe(200)
-    expect(res.headers['content-encoding']).toBeUndefined()
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-encoding')).toBe(null)
   })
 
   it('falls back to identity encoding', async () => {

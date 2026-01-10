@@ -36,7 +36,10 @@ export class DidWebResolver extends BaseResolver {
       const res = await fetch(url, {
         signal,
         redirect: 'error',
-        headers: { accept: 'application/did+ld+json,application/json' },
+        headers: {
+          accept: 'application/did+ld+json,application/json',
+          connection: 'close',
+        },
       })
 
       // Positively not found, versus due to e.g. network error
