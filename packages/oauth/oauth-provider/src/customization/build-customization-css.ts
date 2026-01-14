@@ -1,3 +1,4 @@
+import { OAuthClientMetadata } from '@atproto/oauth-types'
 import { extractHue, pickContrastColor } from '../lib/util/color.js'
 import { Branding } from './branding.js'
 import { COLOR_NAMES } from './colors.js'
@@ -5,9 +6,33 @@ import { Customization } from './customization.js'
 
 export function buildCustomizationCss({
   branding,
-}: Customization): undefined | string {
+  clientMetadata,
+  isTrusted,
+}: Customization & {
+  clientMetadata?: OAuthClientMetadata
+  isTrusted?: boolean
+}): undefined | string {
+  // Build CSS variables from PDS branding
   const vars = Array.from(buildCustomizationVars(branding))
-  if (vars.length) return `:root { ${vars.join(' ')} }`
+
+  // Get arbitrary CSS from trusted clients only
+  const customCss =
+    isTrusted && clientMetadata?.branding?.css
+      ? clientMetadata.branding.css
+      : undefined
+
+  // Build the final CSS string
+  const cssParts: string[] = []
+
+  if (vars.length) {
+    cssParts.push(`:root { ${vars.join(' ')} }`)
+  }
+
+  if (customCss) {
+    cssParts.push(customCss)
+  }
+
+  return cssParts.length > 0 ? cssParts.join('\n') : undefined
 }
 
 function* buildCustomizationVars(branding?: Branding): Generator<string> {

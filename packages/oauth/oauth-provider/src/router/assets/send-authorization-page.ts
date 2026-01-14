@@ -14,7 +14,6 @@ import { setupCsrfToken } from './csrf.js'
 export function sendAuthorizePageFactory(customization: Customization) {
   // Pre-computed options:
   const customizationData = buildCustomizationData(customization)
-  const customizationCss = cssCode(buildCustomizationCss(customization))
   const { scripts, styles } = getAssets('authorization-page')
   const csp = mergeCsp(
     SPA_CSP,
@@ -32,6 +31,15 @@ export function sendAuthorizePageFactory(customization: Customization) {
     data: AuthorizationResultAuthorizePage,
   ): Promise<void> {
     await setupCsrfToken(req, res)
+
+    // Generate CSS with client branding
+    const customizationCss = cssCode(
+      buildCustomizationCss({
+        branding: customization.branding,
+        clientMetadata: data.client.metadata,
+        isTrusted: data.client.info.isTrusted,
+      }),
+    )
 
     const script = declareHydrationData<HydrationData['authorization-page']>({
       __customizationData: customizationData,

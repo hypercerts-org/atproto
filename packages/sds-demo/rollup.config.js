@@ -173,6 +173,34 @@ module.exports = defineConfig((commandLineArguments) => {
             application_type: 'web',
             token_endpoint_auth_method: 'none',
             dpop_bound_access_tokens: true,
+            // Custom branding for trusted clients
+            // This CSS will be injected into the authorization page when this client is trusted
+            branding: {
+              css: `
+/* SDS Demo Custom Branding */
+:root {
+  --branding-color-primary: 99 102 241;
+  --branding-color-primary-contrast: 255 255 255;
+  --branding-color-primary-hue: 239;
+}
+
+/* Custom button styling */
+button[type="submit"] {
+  background: linear-gradient(135deg, rgb(99 102 241) 0%, rgb(139 92 246) 100%) !important;
+  box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39) !important;
+}
+
+/* Add a subtle brand indicator */
+.auth-form::before {
+  content: "Powered by SDS Demo";
+  display: block;
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgb(99 102 241);
+  margin-bottom: 1rem;
+}
+              `.trim(),
+            },
           }
 
           this.emitFile({
