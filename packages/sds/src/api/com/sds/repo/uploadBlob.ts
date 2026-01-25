@@ -70,7 +70,7 @@ export default function (server: Server, ctx: SdsAppContext) {
           // Log shared repository access for audit purposes
           if (accessType === 'shared') {
             console.log(
-              `Shared repository access: User ${userDid} uploading blob to repository ${repoDid}`,
+              `[uploadBlob] Shared repository access: User ${userDid} uploading blob to repository ${repoDid}`,
             )
           }
         } catch (err) {
