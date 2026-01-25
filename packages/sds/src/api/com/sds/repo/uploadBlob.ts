@@ -124,9 +124,7 @@ export default function (server: Server, ctx: SdsAppContext) {
         }
       }
 
-      console.log(
-        `[uploadBlob] Starting blob upload for repository ${repoDid}`,
-      )
+      console.log(`[uploadBlob] Starting blob upload for repository ${repoDid}`)
 
       const blob = await ctx.actorStore.writeNoTransaction(
         repoDid,
