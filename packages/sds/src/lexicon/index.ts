@@ -208,6 +208,7 @@ import * as ComSdsRepoGrantAccess from './types/com/sds/repo/grantAccess.js'
 import * as ComSdsRepoListCollaborators from './types/com/sds/repo/listCollaborators.js'
 import * as ComSdsRepoRevokeAccess from './types/com/sds/repo/revokeAccess.js'
 import * as ComSdsRepoTransferOwnership from './types/com/sds/repo/transferOwnership.js'
+import * as ComSdsRepoUploadBlob from './types/com/sds/repo/uploadBlob.js'
 import * as ToolsOzoneCommunicationCreateTemplate from './types/tools/ozone/communication/createTemplate.js'
 import * as ToolsOzoneCommunicationDeleteTemplate from './types/tools/ozone/communication/deleteTemplate.js'
 import * as ToolsOzoneCommunicationListTemplates from './types/tools/ozone/communication/listTemplates.js'
@@ -3066,6 +3067,18 @@ export class ComSdsRepoNS {
     >,
   ) {
     const nsid = 'com.sds.repo.transferOwnership' // @ts-ignore
+    return this._server.xrpc.method(nsid, cfg)
+  }
+
+  uploadBlob<A extends Auth = void>(
+    cfg: MethodConfigOrHandler<
+      A,
+      ComSdsRepoUploadBlob.QueryParams,
+      ComSdsRepoUploadBlob.HandlerInput,
+      ComSdsRepoUploadBlob.HandlerOutput
+    >,
+  ) {
+    const nsid = 'com.sds.repo.uploadBlob' // @ts-ignore
     return this._server.xrpc.method(nsid, cfg)
   }
 }

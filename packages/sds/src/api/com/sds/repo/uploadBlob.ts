@@ -4,7 +4,8 @@ import { Server } from '../../../../lexicon'
 import { SdsAppContext } from '../../../../sds-context'
 
 export default function (server: Server, ctx: SdsAppContext) {
-  server.com.atproto.repo.uploadBlob({
+  // Register the SDS-specific uploadBlob endpoint that requires a repo parameter
+  server.com.sds.repo.uploadBlob({
     auth: ctx.authVerifier.authorization({
       checkTakedown: false, // Will be checked per-repo in handler
       authorize: (permissions, { req }) => {
@@ -19,109 +20,52 @@ export default function (server: Server, ctx: SdsAppContext) {
         calcPoints: () => 1000,
       },
     ],
-    handler: async ({ auth, input, req }) => {
+    handler: async ({ auth, input, params }) => {
       const userDid = auth.credentials.did
+      const { repo } = params
 
       console.log(
-        `[uploadBlob] Handler entry - User: ${userDid}, Content-Type: ${input.encoding}`,
+        `[uploadBlob] Handler entry - User: ${userDid}, Repo: ${repo}, Content-Type: ${input.encoding}`,
       )
 
-      // SDS Enhancement: Support uploading blobs to shared repositories
-      // If 'repo' query parameter is provided, upload to that repository
-      // Otherwise, upload to the authenticated user's repository (standard behavior)
-      // Note: We access req.query directly since 'repo' is not in the lexicon QueryParams
-      const repoParam =
-        typeof req.query?.repo === 'string' ? req.query.repo : undefined
-
-      if (repoParam) {
-        console.log(
-          `[uploadBlob] Repo parameter detected: ${repoParam}, will check shared access`,
-        )
-      }
+      // Check permissions for shared repository access
+      // Blob uploads require 'create' permission (aligned with OAuth scope model)
+      console.log(
+        `[uploadBlob] Checking permissions for user ${userDid} to access repository ${repo}`,
+      )
 
       let repoDid: string
-      let accessType: 'owner' | 'shared' = 'owner'
+      let accessType: 'owner' | 'shared'
 
-      if (repoParam) {
-        // SDS-specific: Check permissions for shared repository access
-        // Blob uploads require 'create' permission (aligned with OAuth scope model)
+      try {
+        const { account, accessType: access } =
+          await ctx.authVerifier.findAccountWithSharedAccess(
+            repo,
+            userDid,
+            'create',
+            {
+              checkDeactivated: true,
+              checkTakedown: true,
+            },
+          )
+        repoDid = account.did
+        accessType = access
+
         console.log(
-          `[uploadBlob] Checking permissions for user ${userDid} to access repository ${repoParam}`,
+          `[uploadBlob] Permission check succeeded - Access type: ${accessType}, Repository DID: ${repoDid}`,
         )
 
-        try {
-          const { account, accessType: access } =
-            await ctx.authVerifier.findAccountWithSharedAccess(
-              repoParam,
-              userDid,
-              'create',
-              {
-                checkDeactivated: true,
-                checkTakedown: true,
-              },
-            )
-          repoDid = account.did
-          accessType = access
-
+        if (accessType === 'shared') {
           console.log(
-            `[uploadBlob] Permission check succeeded - Access type: ${accessType}, Repository DID: ${repoDid}`,
+            `[uploadBlob] Shared repository access: User ${userDid} uploading blob to repository ${repoDid}`,
           )
-
-          // Log shared repository access for audit purposes
-          if (accessType === 'shared') {
-            console.log(
-              `[uploadBlob] Shared repository access: User ${userDid} uploading blob to repository ${repoDid}`,
-            )
-          }
-        } catch (err) {
-          console.error(
-            `[uploadBlob] Permission check failed for user ${userDid} to access repository ${repoParam}:`,
-            err,
-          )
-          throw err
         }
-      } else {
-        // Standard behavior: upload to authenticated user's repository
-        console.log(
-          `[uploadBlob] No repo parameter, using authenticated user's repository`,
+      } catch (err) {
+        console.error(
+          `[uploadBlob] Permission check failed for user ${userDid} to access repository ${repo}:`,
+          err,
         )
-
-        try {
-          const account = await ctx.authVerifier.findAccount(userDid, {
-            checkDeactivated: true,
-            checkTakedown: true,
-          })
-          repoDid = account.did
-
-          console.log(
-            `[uploadBlob] Account found for user ${userDid}, DID: ${repoDid}`,
-          )
-        } catch (err) {
-          console.error(
-            `[uploadBlob] Failed to find account for user ${userDid}:`,
-            err,
-          )
-          throw err
-        }
-      }
-
-      // OAuth permission checks (same as original PDS)
-      if (auth.credentials.type === 'oauth' && auth.credentials.permissions) {
-        console.log(
-          `[uploadBlob] Performing OAuth permission check for MIME type: ${input.encoding}`,
-        )
-
-        try {
-          const encoding = parseReqEncoding(req)
-          auth.credentials.permissions.assertBlob({ mime: encoding })
-          console.log(`[uploadBlob] OAuth permission check passed`)
-        } catch (err) {
-          console.error(
-            `[uploadBlob] OAuth permission check failed for MIME type ${input.encoding}:`,
-            err,
-          )
-          throw err
-        }
+        throw err
       }
 
       console.log(`[uploadBlob] Starting blob upload for repository ${repoDid}`)

@@ -14378,6 +14378,55 @@ export const schemaDict = {
       },
     },
   },
+  ComSdsRepoUploadBlob: {
+    lexicon: 1,
+    id: 'com.sds.repo.uploadBlob',
+    defs: {
+      main: {
+        type: 'procedure',
+        description:
+          'Upload a new blob to a shared repository. The blob will be deleted if it is not referenced within a time window (eg, minutes). Blob restrictions (mimetype, size, etc) are enforced when the reference is created. Requires auth and write permissions on the target repository.',
+        parameters: {
+          type: 'params',
+          required: ['repo'],
+          properties: {
+            repo: {
+              type: 'string',
+              format: 'at-identifier',
+              description:
+                'The handle or DID of the repository to upload the blob to.',
+            },
+          },
+        },
+        input: {
+          encoding: '*/*',
+        },
+        output: {
+          encoding: 'application/json',
+          schema: {
+            type: 'object',
+            required: ['blob'],
+            properties: {
+              blob: {
+                type: 'blob',
+              },
+            },
+          },
+        },
+        errors: [
+          {
+            name: 'RepositoryNotFound',
+            description: 'The specified repository could not be found.',
+          },
+          {
+            name: 'InsufficientPermissions',
+            description:
+              'The authenticated user does not have write permission on this repository.',
+          },
+        ],
+      },
+    },
+  },
   ToolsOzoneCommunicationCreateTemplate: {
     lexicon: 1,
     id: 'tools.ozone.communication.createTemplate',
@@ -19256,6 +19305,7 @@ export const ids = {
   ComSdsRepoListCollaborators: 'com.sds.repo.listCollaborators',
   ComSdsRepoRevokeAccess: 'com.sds.repo.revokeAccess',
   ComSdsRepoTransferOwnership: 'com.sds.repo.transferOwnership',
+  ComSdsRepoUploadBlob: 'com.sds.repo.uploadBlob',
   ToolsOzoneCommunicationCreateTemplate:
     'tools.ozone.communication.createTemplate',
   ToolsOzoneCommunicationDefs: 'tools.ozone.communication.defs',
